@@ -1,9 +1,13 @@
-class Engine(object):
+import mapper
 
+class Engine(object):
     player_inventory = []
     # Sets the room location init from class
     def __init__(self, room_location):
+        map = mapper.Map()
         self.room_location = room_location
+        map.generate_map_from_room_guide(room_location)
+        self.map = map
         print("room_location set to:", self.room_location)
 
     def room_change(self):
@@ -14,7 +18,8 @@ class Engine(object):
         # loops engine till game is over
         while finished != True:
             # enters the current_room
-            play_room = current_room.enter(self.player_inventory)
+            self.map.display()
+            play_room = current_room.enter(self.player_inventory, self.map)
             # if map returns no room tells player they can't go that way
             if play_room is None:
                 print("You can't go that way.")
@@ -42,7 +47,7 @@ class Room(object):
             return self.name
 
     # "enters" the room
-    def enter(self, player_inventory):
+    def enter(self, player_inventory, map):
         print(f"This is the {self}. {self.description} What do you do?")
         choice = input('> ')
         # seperates user input at any space, returns list
@@ -66,15 +71,23 @@ class Room(object):
             return str(self)
 
         elif command == 'f':
+            if self.forward:
+                map.update_player("forward")
             return self.forward
 
         elif command == 'l':
+            if self.left:
+                map.update_player("left")
             return self.left
 
         elif command == 'r':
+            if self.right:
+                map.update_player("right")
             return self.right
 
         elif command == 'b':
+            if self.back:
+                map.update_player("back")
             return self.back
 
         else:
