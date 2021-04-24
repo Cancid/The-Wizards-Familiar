@@ -1,6 +1,9 @@
 class Engine(object):
 
     player_inventory = []
+    visited = []
+    no_desc = []
+
     # Sets the room location init from class
     def __init__(self, room_location):
         self.room_location = room_location
@@ -14,7 +17,7 @@ class Engine(object):
         # loops engine till game is over
         while finished != True:
             # enters the current_room
-            play_room = current_room.enter(self.player_inventory)
+            play_room = current_room.enter(self.player_inventory, self.visited, self.no_desc)
             # if map returns no room tells player they can't go that way
             if play_room is None:
                 print("You can't go that way.")
@@ -32,6 +35,7 @@ class Room(object):
     forward = None
     back = None
     interactables = None
+
     # inits the current room with mandatory and optional variables
     def __init__(self, name, description = 'No description'):
         self.name = name
@@ -39,22 +43,30 @@ class Room(object):
 
     #ensures the room name is returned as a string to engine
     def __str__(self):
-            return self.name
+        return self.name
 
     # "enters" the room
-    def enter(self, player_inventory):
-        print(f"This is the {self}. {self.description} What do you do?")
+    def enter(self, player_inventory, visited, no_desc):
+        if self.name in visited and self.name in no_desc:
+            pass
+        elif self.name in visited:
+            print(f'You are in the {self}. This room was visited. What do you do?')
+            no_desc.append(self.name)
+        else:
+            print(f"This is the {self}. {self.description} What do you do?")
+            visited.append(self.name)
+            no_desc.append(self.name)
+        #else:
+        #    print(self.visited_description)
         choice = input('> ')
         # seperates user input at any space, returns list
         command = choice.split(' ')[0]
-        # if no second in list, set object to None
         try:
             object = choice.split(' ')[1]
         # if an Index Error (aka no object returned) set object to none
         except IndexError:
+            # if no second in list, set object to None
             object = None
-
-        # player actions
         if command in ('i', 'interact'):
             if object is None:
                 print("With what?")
@@ -63,28 +75,54 @@ class Room(object):
             if new_item is not None:
                 player_inventory.append(new_item)
                 print('>>>INV:', player_inventory)
+                return str(self)
+            else:
+                return str(self)
+
+        elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
+            no_desc.pop()
+            if command in ('f', 'forward'):
+                return self.forward
+            elif command in ('l', 'left'):
+                return self.left
+            elif command in ('r', 'right'):
+                return self.right
+            elif command in ('b', 'back'):
+                return self.back
+
+        elif command in ('d', 'desc', 'description'):
+            print(self.description)
+            return str(self)
+        elif command in ('h', 'help'):
+            print('This is the list of commands.')
             return str(self)
 
-        elif command == 'f':
-            return self.forward
-
-        elif command == 'l':
-            return self.left
-
-        elif command == 'r':
-            return self.right
-
-        elif command == 'b':
-            return self.back
+        elif len(choice.split(' ')) == 2:
+            command = choice.split(' ')[0]
+            object = choice.split(' ')[1]
+            print(object)
+            try:
+                new_item = self.interactables.get(object).interact(player_inventory, command)
+                if new_item is not None:
+                    player_inventory.append(new_item)
+                    print('>>>INV:', player_inventory)
+                    return str(self)
+                else:
+                    return str(self)
+            except AttributeError:
+                print('Please enter a valid response.')
+                return str(self)
 
         else:
-            return 'dead'
+            print('Please enter a valid response.')
+            return str(self)
 
 class Interactables(object):
     action_1 = None
     action_2 = None
     interaction = None
-    descripion = None
+    description = None
+    no_desc = False
     # init an interactable with optional actions
     def __init__(self, name):
         self.name = name
@@ -94,22 +132,31 @@ class Interactables(object):
         return self.name
 
     # allows player to choose what to do with object
-    def interact(self, player_inventory):
-        print(f"{self.description}")
-        for a in self.interaction.values():
-            if a.description is not None and a.active == True:
-                print(a.description)
-        choice = input('>OBJECT ')
+    def interact(self, player_inventory, choice = None):
+        if self.no_desc == False:
+            print(self.description)
+            if self.interaction is not None:
+                # print(self.interaction)
+                for act in self.interaction.values():
+                    if act.description is not None and act.active == True:
+                        print(act.description)
+        if choice is None:
+            choice = input('>OBJECT ')
         if choice == self.action_1:
             object = str(self.action_1)
-            print('>>>>> object:', object)
         elif choice == self.action_2:
             object = str(self.action_2)
         else:
-            return 'dead'
-        new_item = self.interaction.get(object).use(player_inventory)
-        return new_item
-
+            print('Please enter a valid response.')
+            self.no_desc = True
+            self.interact(player_inventory)
+        try:
+            new_item = self.interaction.get(object).use(player_inventory)
+            print('NEW_ITEM AFTER INT:', new_item)
+            self.no_desc = False
+            return new_item
+        except:
+            pass
 
 
 class Interaction(object):
@@ -117,11 +164,12 @@ class Interaction(object):
     item = False
     key = None
     unlock = None
-    description = None
+    # description = None
 
-    def __init__(self, name, purpose):
+    def __init__(self, name, purpose, description = None):
         self.name = name
         self.purpose = purpose
+        self.description = description
 
     def use(self, player_inventory):
         if self.active == False:
@@ -142,13 +190,17 @@ class Interaction(object):
                 return self.name
 
 
-class Dead(object):
+class Failure(object):
+
+    def __init__(self, name, description):
+        self.name = name
+        self.description = description
 
     def __str__(self):
-        return 'dead'
+        return 'failure'
 
-    def enter(self):
-        print("You died. Play again?")
+    def enter(self, player_inventory):
+        print(self.description)
         choice = input('> ')
         if choice == 'y':
             a_game.room_change()
@@ -156,7 +208,7 @@ class Dead(object):
             exit(1)
         else:
             print('Please select a valid response.')
-            return 'dead'
+            return 'failure'
 
 
 class RoomGuide(object):
@@ -165,6 +217,7 @@ class RoomGuide(object):
     hallway = Room('hallway')
     kitchen = Room('kitchen')
     master_bedroom = Room('Master Bedroom')
+    failure = Failure('failure', 'You failed! Play again?')
 
     fireplace = Interactables('fireplace')
     piano = Interactables('piano')
@@ -183,6 +236,8 @@ class RoomGuide(object):
 
     piano.description = '''A beautiful piano covered in dust sits on the
                             far right end of the foyer.'''.replace('  ', '')
+
+    fireplace.description = 'You feel warm.'
     piano.action_1 = 'play'
     piano.action_2 = 'music'
     piano.interaction = {'play': play, 'music': music}
@@ -195,13 +250,12 @@ class RoomGuide(object):
 
     room_guide = {
         'foyer': foyer,
-        'dead':Dead(),
+        'failure': failure,
         'hallway':hallway,
         'kitchen':kitchen,
         'Master Bedroom':master_bedroom,
         #'you win': YouWin()
     }
-
 
     def __init__(self, room):
         self.room = room
