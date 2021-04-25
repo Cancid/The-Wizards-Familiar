@@ -1,12 +1,16 @@
-class Engine(object):
+import mapper
 
+class Engine(object):
     player_inventory = []
     visited = []
     no_desc = []
 
     # Sets the room location init from class
     def __init__(self, room_location):
+        map = mapper.Map()
         self.room_location = room_location
+        map.generate_map_from_room_guide(room_location)
+        self.map = map
         print("room_location set to:", self.room_location)
 
     def room_change(self):
@@ -17,7 +21,8 @@ class Engine(object):
         # loops engine till game is over
         while finished != True:
             # enters the current_room
-            play_room = current_room.enter(self.player_inventory, self.visited, self.no_desc)
+            self.map.display()
+            play_room = current_room.enter(self.player_inventory, self.visited, self.no_desc, self.map)
             # if map returns no room tells player they can't go that way
             if play_room is None:
                 print("You can't go that way.")
@@ -46,7 +51,7 @@ class Room(object):
         return self.name
 
     # "enters" the room
-    def enter(self, player_inventory, visited, no_desc):
+    def enter(self, player_inventory, visited, no_desc, map):
         if self.name in visited and self.name in no_desc:
             pass
         elif self.name in visited:
@@ -82,12 +87,20 @@ class Room(object):
         elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
             no_desc.pop()
             if command in ('f', 'forward'):
+                if self.forward:
+                    map.update_player("forward")
                 return self.forward
             elif command in ('l', 'left'):
+                if self.left:
+                    map.update_player("left")
                 return self.left
             elif command in ('r', 'right'):
+                if self.right:
+                    map.update_player("right")
                 return self.right
             elif command in ('b', 'back'):
+                if self.back:
+                    map.update_player("back")
                 return self.back
 
         elif command in ('d', 'desc', 'description'):
