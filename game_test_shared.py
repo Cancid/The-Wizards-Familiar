@@ -60,7 +60,7 @@ class Player_Location(object):
         if self.room in visited and self.room in no_desc:
             pass
         elif self.room in visited:
-            print(f'You are in the {self}. This room was visited. What do you do?')
+            print(f'You are in the {self.room}. This room was visited. What do you do?')
             no_desc.append(self.room)
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
