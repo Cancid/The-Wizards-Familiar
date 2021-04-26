@@ -34,7 +34,12 @@ class Engine(object):
             print("Current room after while:", current_room)
 
 
-class Room(object):
+class Room(object):#Enum):
+    #foyer = 1
+    #hallway = 2
+    #master_bedroom = 3
+    #kitchen = 4
+
     left = None
     right = None
     forward = None
@@ -234,6 +239,11 @@ class RoomGuide(object):
 
     fireplace = Interactables('fireplace')
     piano = Interactables('piano')
+    portrait = Interactables('portrait')
+    #bust = Interactables('bust')
+    #landscape_painting = Interactables('landscape_painting')
+    #cabinet = Interactables('cabinet')
+    #bed = Interactables('bed')
 
     play = Interaction('play', 'You play the piano.')
     music = Interaction('music sheets', 'They have a song on them.')
@@ -244,16 +254,21 @@ class RoomGuide(object):
     hallway.back = 'foyer'
     hallway.left = 'kitchen'
     hallway.right = 'Master Bedroom'
+    hallway.interactables = {'portrait': portrait} #'bust': bust,
+                            #'landscape painting': landscape_painting
     master_bedroom.left = 'hallway'
     kitchen.right = 'hallway'
 
     piano.description = '''A beautiful piano covered in dust sits on the
-                            far right end of the foyer.'''.replace('  ', '')
+                            far right end of the foyer.'''.replace('    ', '')
 
     fireplace.description = 'You feel warm.'
     piano.action_1 = 'play'
     piano.action_2 = 'music'
     piano.interaction = {'play': play, 'music': music}
+    portrait.description = '''An old women with black hair in a fine purple gown
+                                stares back at you. You swear a sinsiter smile slowly curls
+                                across it the longer you look at it.'''.replace('   ', '')
 
     play.key = 'music sheets'
     play.unlock = 'You play a beautiful song.'
