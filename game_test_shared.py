@@ -1,4 +1,5 @@
 import mapper
+from enum import Enum
 
 class Engine(object):
     player_inventory = []
@@ -16,12 +17,13 @@ class Engine(object):
     def room_change(self):
         # passes the room_location to RoomGuide
         current_room = self.room_location.start_guide()
-        print(">>> Current room:", current_room)
+        #print(">>> Current room:", current_room)
         finished = False
         # loops engine till game is over
         while finished != True:
             # enters the current_room
             self.map.display()
+            #print('>>>>>>', current_room)
             play_room = current_room.enter(self.player_inventory, self.visited, self.no_desc, self.map)
             # if map returns no room tells player they can't go that way
             if play_room is None:
@@ -31,15 +33,16 @@ class Engine(object):
             # sets the RoomGuide to room returned by the previos rooms enter()
             current_room = self.room_location.next_room(play_room)
             # loop repeats
-            print("Current room after while:", current_room)
+            #print("Current room after while:", current_room)
 
+class Room(Enum):
+    FOYER = 1
+    HALLWAY = 2
+    KITCHEN = 3
+    MASTER_BEDROOM = 4
+    FAILURE = 5
 
-class Room(object):#Enum):
-    #foyer = 1
-    #hallway = 2
-    #master_bedroom = 3
-    #kitchen = 4
-
+class Player_Location(object):
     left = None
     right = None
     forward = None
@@ -47,25 +50,22 @@ class Room(object):#Enum):
     interactables = None
 
     # inits the current room with mandatory and optional variables
-    def __init__(self, name, description = 'No description'):
+    def __init__(self, room: Room, name, description = 'No description'):
+        self.room = room
         self.name = name
         self.description = description
 
-    #ensures the room name is returned as a string to engine
-    def __str__(self):
-        return self.name
-
     # "enters" the room
     def enter(self, player_inventory, visited, no_desc, map):
-        if self.name in visited and self.name in no_desc:
+        if self.room in visited and self.room in no_desc:
             pass
-        elif self.name in visited:
+        elif self.room in visited:
             print(f'You are in the {self}. This room was visited. What do you do?')
-            no_desc.append(self.name)
+            no_desc.append(self.room)
         else:
-            print(f"This is the {self}. {self.description} What do you do?")
-            visited.append(self.name)
-            no_desc.append(self.name)
+            print(f"This is the {self.name}. {self.description} What do you do?")
+            visited.append(self.room)
+            no_desc.append(self.room)
         #else:
         #    print(self.visited_description)
         choice = input('> ')
@@ -85,9 +85,9 @@ class Room(object):#Enum):
             if new_item is not None:
                 player_inventory.append(new_item)
                 print('>>>INV:', player_inventory)
-                return str(self)
+                return self.room
             else:
-                return str(self)
+                return self.room
 
         elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
             no_desc.pop()
@@ -110,10 +110,10 @@ class Room(object):#Enum):
 
         elif command in ('d', 'desc', 'description'):
             print(self.description)
-            return str(self)
+            return self.room
         elif command in ('h', 'help'):
             print('This is the list of commands.')
-            return str(self)
+            return self.room
 
         elif len(choice.split(' ')) == 2:
             command = choice.split(' ')[0]
@@ -124,16 +124,16 @@ class Room(object):#Enum):
                 if new_item is not None:
                     player_inventory.append(new_item)
                     print('>>>INV:', player_inventory)
-                    return str(self)
+                    return self.room
                 else:
-                    return str(self)
+                    return self.room
             except AttributeError:
                 print('Please enter a valid response.')
-                return str(self)
+                return self.room
 
         else:
             print('Please enter a valid response.')
-            return str(self)
+            return self.room
 
 class Interactables(object):
     action_1 = None
@@ -210,7 +210,7 @@ class Interaction(object):
 
 class Failure(object):
 
-    def __init__(self, name, description):
+    def __init__(self, room: Room, name, description):
         self.name = name
         self.description = description
 
@@ -231,11 +231,11 @@ class Failure(object):
 
 class RoomGuide(object):
 
-    foyer = Room('foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
-    hallway = Room('hallway')
-    kitchen = Room('kitchen')
-    master_bedroom = Room('Master Bedroom')
-    failure = Failure('failure', 'You failed! Play again?')
+    foyer = Player_Location(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
+    hallway = Player_Location(Room.HALLWAY, 'hallway')
+    kitchen = Player_Location(Room.KITCHEN, 'kitchen')
+    master_bedroom = Player_Location(Room.MASTER_BEDROOM, 'Master Bedroom')
+    failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
 
     fireplace = Interactables('fireplace')
     piano = Interactables('piano')
@@ -249,15 +249,15 @@ class RoomGuide(object):
     music = Interaction('music sheets', 'They have a song on them.')
     music.item = True
 
-    foyer.forward = 'hallway'
+    foyer.forward = Room.HALLWAY
     foyer.interactables = {'fireplace': fireplace, 'piano': piano}
-    hallway.back = 'foyer'
-    hallway.left = 'kitchen'
-    hallway.right = 'Master Bedroom'
+    hallway.back = Room.FOYER
+    hallway.left = Room.KITCHEN
+    hallway.right = Room.MASTER_BEDROOM
     hallway.interactables = {'portrait': portrait} #'bust': bust,
                             #'landscape painting': landscape_painting
-    master_bedroom.left = 'hallway'
-    kitchen.right = 'hallway'
+    master_bedroom.left = Room.HALLWAY
+    kitchen.right = Room.HALLWAY
 
     piano.description = '''A beautiful piano covered in dust sits on the
                             far right end of the foyer.'''.replace('    ', '')
@@ -277,11 +277,11 @@ class RoomGuide(object):
 
 
     room_guide = {
-        'foyer': foyer,
-        'failure': failure,
-        'hallway':hallway,
-        'kitchen':kitchen,
-        'Master Bedroom':master_bedroom,
+        Room.FOYER: foyer,
+        Room.FAILURE: failure,
+        Room.HALLWAY: hallway,
+        Room.KITCHEN: kitchen,
+        Room.MASTER_BEDROOM: master_bedroom,
         #'you win': YouWin()
     }
 
@@ -296,6 +296,6 @@ class RoomGuide(object):
         return self.next_room(self.room)
 
 
-a_map = RoomGuide('foyer')
+a_map = RoomGuide(Room.FOYER)
 a_game = Engine(a_map)
 a_game.room_change()
