@@ -1,10 +1,11 @@
 import mapper
 from enum import Enum
+from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
-    player_inventory = []
-    visited = []
-    no_desc = []
+    player_inventory: list[str] = []
+    visited: list[str] = []
+    no_desc: list[str] = []
 
     # Sets the room location init from class
     def __init__(self, room_location):
@@ -43,11 +44,11 @@ class Room(Enum):
     FAILURE = 5
 
 class Player_Location(object):
-    left = None
-    right = None
-    forward = None
-    back = None
-    interactables = None
+    left: Optional[Room] = None
+    right: Optional[Room] = None
+    forward: Optional[Room] = None
+    back: Optional[Room] = None
+    interactables: Optional[dict] = None
 
     # inits the current room with mandatory and optional variables
     def __init__(self, room: Room, name, description = 'No description'):
@@ -136,11 +137,11 @@ class Player_Location(object):
             return self.room
 
 class Interactables(object):
-    action_1 = None
-    action_2 = None
-    interaction = None
-    description = None
-    no_desc = False
+    action_1: Optional[str] = None
+    action_2: Optional[str]= None
+    interaction: Optional[dict] = None
+    description: Optional[str] = None
+    no_desc: bool = False
     # init an interactable with optional actions
     def __init__(self, name):
         self.name = name
@@ -178,10 +179,10 @@ class Interactables(object):
 
 
 class Interaction(object):
-    active = True
-    item = False
-    key = None
-    unlock = None
+    active: bool = True
+    item: bool = False
+    key: Optional[str] = None
+    unlock: Optional[str] = None
     # description = None
 
     def __init__(self, name, purpose, description = None):
