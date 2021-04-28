@@ -4,18 +4,18 @@ from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, 
 
 class Engine(object):
     player_inventory: list[str] = []
-    visited: list[str] = []
-    no_desc: list[str] = []
+    visited: list[int] = []
+    no_desc: list[int] = []
 
     # Sets the room location init from class
-    def __init__(self, room_location):
+    def __init__(self, room_location: object):
         map = mapper.Map()
         self.room_location = room_location
         map.generate_map_from_room_guide(room_location)
         self.map = map
         print("room_location set to:", self.room_location)
 
-    def room_change(self):
+    def room_change(self) -> None:
         # passes the room_location to RoomGuide
         current_room = self.room_location.start_guide()
         #print(">>> Current room:", current_room)
@@ -51,13 +51,13 @@ class Player_Location(object):
     interactables: Optional[dict] = None
 
     # inits the current room with mandatory and optional variables
-    def __init__(self, room: Room, name, description = 'No description'):
+    def __init__(self, room: int, name: str, description: str = 'No description'):
         self.room = room
         self.name = name
         self.description = description
 
     # "enters" the room
-    def enter(self, player_inventory, visited, no_desc, map):
+    def enter(self, player_inventory: list[str], visited: list[int], no_desc: list[int], map: str) -> int:
         if self.room in visited and self.room in no_desc:
             pass
         elif self.room in visited:
@@ -73,7 +73,7 @@ class Player_Location(object):
         # seperates user input at any space, returns list
         command = choice.split(' ')[0]
         try:
-            object = choice.split(' ')[1]
+            object: Optional[str] = choice.split(' ')[1]
         # if an Index Error (aka no object returned) set object to none
         except IndexError:
             # if no second in list, set object to None
@@ -82,7 +82,7 @@ class Player_Location(object):
             if object is None:
                 print("With what?")
                 object = input('WITH> ')
-            new_item = self.interactables.get(object).interact(player_inventory)
+            new_item: Optional[str] = self.interactables.get(object).interact(player_inventory)
             if new_item is not None:
                 player_inventory.append(new_item)
                 print('>>>INV:', player_inventory)
@@ -136,6 +136,8 @@ class Player_Location(object):
             print('Please enter a valid response.')
             return self.room
 
+        return self.room
+
 class Interactables(object):
     action_1: Optional[str] = None
     action_2: Optional[str]= None
@@ -143,15 +145,15 @@ class Interactables(object):
     description: Optional[str] = None
     no_desc: bool = False
     # init an interactable with optional actions
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
-    # return name as string to caller
+    #return name as string to caller
     def __str__(self):
         return self.name
 
     # allows player to choose what to do with object
-    def interact(self, player_inventory, choice = None):
+    def interact(self, player_inventory: list[str], choice: Optional[str] = None) -> None:
         if self.no_desc == False:
             print(self.description)
             if self.interaction is not None:
@@ -185,14 +187,14 @@ class Interaction(object):
     unlock: Optional[str] = None
     # description = None
 
-    def __init__(self, name, purpose, description = None):
+    def __init__(self, name: str, purpose: str, description: Optional[str] = None) -> None:
         self.name = name
         self.purpose = purpose
         self.description = description
 
-    def use(self, player_inventory):
+    def use(self, player_inventory: list[str]) -> Optional[str]:
         if self.active == False:
-            return
+            return None
         print("INV:", player_inventory)
         print("KEY:", self.key)
         if self.key is not None and len(player_inventory) > 0:
@@ -208,17 +210,19 @@ class Interaction(object):
                 self.active = False
                 return self.name
 
+        return self.name
+
 
 class Failure(object):
 
-    def __init__(self, room: Room, name, description):
+    def __init__(self, room: int, name: str, description: str):
         self.name = name
         self.description = description
 
     def __str__(self):
         return 'failure'
 
-    def enter(self, player_inventory):
+    def enter(self, player_inventory: list[str]) -> str:
         print(self.description)
         choice = input('> ')
         if choice == 'y':
@@ -228,15 +232,17 @@ class Failure(object):
         else:
             print('Please select a valid response.')
             return 'failure'
+        return 'failure'
+
 
 
 class RoomGuide(object):
 
-    foyer = Player_Location(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
-    hallway = Player_Location(Room.HALLWAY, 'hallway')
-    kitchen = Player_Location(Room.KITCHEN, 'kitchen')
-    master_bedroom = Player_Location(Room.MASTER_BEDROOM, 'Master Bedroom')
-    failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
+    foyer = Player_Location(1, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
+    hallway = Player_Location(2, 'hallway')
+    kitchen = Player_Location(3, 'kitchen')
+    master_bedroom = Player_Location(4, 'Master Bedroom')
+    failure = Failure(5, 'failure', 'You failed! Play again?')
 
     fireplace = Interactables('fireplace')
     piano = Interactables('piano')
@@ -286,15 +292,18 @@ class RoomGuide(object):
         #'you win': YouWin()
     }
 
-    def __init__(self, room):
+    def __init__(self, room: Room):
         self.room = room
 
-    def next_room(self, room_name):
+    def next_room(self, room_name: Room) -> Player_Location:
+        print(type(self.room_guide.get(room_name)))
         new_room = self.room_guide.get(room_name)
         return new_room
 
-    def start_guide(self):
+    def start_guide(self) -> Player_Location:
+        print(type(self.next_room(self.room)))
         return self.next_room(self.room)
+
 
 
 a_map = RoomGuide(Room.FOYER)
