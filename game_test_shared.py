@@ -4,11 +4,12 @@ from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, 
 
 class Engine(object):
     player_inventory: list[str] = []
-    visited: list[int] = []
-    no_desc: list[int] = []
+    visited: list[object] = [] #what would this be?
+    no_desc: list[object] = []
 
     # Sets the room location init from class
-    def __init__(self, room_location: object):
+    def __init__(self, room_location: object, player):
+        self.player = player
         map = mapper.Map()
         self.room_location = room_location
         map.generate_map_from_room_guide(room_location)
@@ -25,14 +26,17 @@ class Engine(object):
             # enters the current_room
             self.map.display()
             #print('>>>>>>', current_room)
-            play_room = current_room.enter(self.player_inventory, self.visited, self.no_desc, self.map)
+            moved = current_room.enter(self.player, self.player_inventory, self.visited, self.no_desc, self.map)
             # if map returns no room tells player they can't go that way
-            if play_room is None:
+
+            if not moved:
                 print("You can't go that way.")
                 #returns to beginning of while loop
                 continue
             # sets the RoomGuide to room returned by the previos rooms enter()
-            current_room = self.room_location.next_room(play_room)
+            print(self.player.location.room)
+            current_room = self.player.location#.next_room(self.player.location.room)
+            print(str(current_room))
             # loop repeats
             #print("Current room after while:", current_room)
 
@@ -43,100 +47,130 @@ class Room(Enum):
     MASTER_BEDROOM = 4
     FAILURE = 5
 
-class Player_Location(object):
-    left: Optional[Room] = None
-    right: Optional[Room] = None
-    forward: Optional[Room] = None
-    back: Optional[Room] = None
+class PlayerLocation(object):
+    left = None
+    right = None
+    forward = None
+    back = None
     interactables: Optional[dict] = None
 
     # inits the current room with mandatory and optional variables
-    def __init__(self, room: int, name: str, description: str = 'No description'):
+    def __init__(self, room: Room, name: str, description: str = 'No description'):
         self.room = room
         self.name = name
         self.description = description
 
     # "enters" the room
-    def enter(self, player_inventory: list[str], visited: list[int], no_desc: list[int], map: str) -> int:
+    def enter(self, player, player_inventory: list[str], visited: list[int], no_desc: list[int], map: str) -> Room:
         if self.room in visited and self.room in no_desc:
             pass
         elif self.room in visited:
-            print(f'You are in the {self.room}. This room was visited. What do you do?')
+            print(f'You are in the {self.name}. This room was visited. What do you do?')
             no_desc.append(self.room)
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
             visited.append(self.room)
             no_desc.append(self.room)
-        #else:
-        #    print(self.visited_description)
-        choice = input('> ')
-        # seperates user input at any space, returns list
-        command = choice.split(' ')[0]
-        try:
-            object: Optional[str] = choice.split(' ')[1]
-        # if an Index Error (aka no object returned) set object to none
-        except IndexError:
-            # if no second in list, set object to None
-            object = None
-        if command in ('i', 'interact'):
-            if object is None:
-                print("With what?")
-                object = input('WITH> ')
-            new_item: Optional[str] = self.interactables.get(object).interact(player_inventory)
-            if new_item is not None:
-                player_inventory.append(new_item)
-                print('>>>INV:', player_inventory)
-                return self.room
-            else:
-                return self.room
 
-        elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
-            no_desc.pop()
-            if command in ('f', 'forward'):
-                if self.forward:
-                    map.update_player("forward")
-                return self.forward
-            elif command in ('l', 'left'):
-                if self.left:
-                    map.update_player("left")
-                return self.left
-            elif command in ('r', 'right'):
-                if self.right:
-                    map.update_player("right")
-                return self.right
-            elif command in ('b', 'back'):
-                if self.back:
-                    map.update_player("back")
-                return self.back
+        return input_request(player_inventory, player, map)
 
-        elif command in ('d', 'desc', 'description'):
-            print(self.description)
-            return self.room
-        elif command in ('h', 'help'):
-            print('This is the list of commands.')
-            return self.room
+class Player(object):
 
-        elif len(choice.split(' ')) == 2:
-            command = choice.split(' ')[0]
-            object = choice.split(' ')[1]
-            print(object)
-            try:
-                new_item = self.interactables.get(object).interact(player_inventory, command)
-                if new_item is not None:
-                    player_inventory.append(new_item)
-                    print('>>>INV:', player_inventory)
-                    return self.room
-                else:
-                    return self.room
-            except AttributeError:
-                print('Please enter a valid response.')
-                return self.room
+    def __init__(self, location, inventory, visited):
+        self.location = location
+        self.inventory = inventory
+        self.visited = visited
 
+    def move(self, command, map):
+
+    #if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
+        Engine.no_desc.pop()
+        if command in ('f', 'forward'):
+            if self.location.forward:
+                map.update_player("forward")
+            new_location = self.location.forward
+        elif command in ('l', 'left'):
+            if self.location.left:
+                map.update_player("left")
+            new_location = self.location.left
+        elif command in ('r', 'right'):
+            if self.location.right:
+                map.update_player("right")
+            new_location = self.location.right
+        elif command in ('b', 'back'):
+            if self.location.back:
+                map.update_player("back")
+            new_location = self.location.back
+
+        if not new_location:
+            return False
         else:
-            print('Please enter a valid response.')
-            return self.room
+            self.location = new_location
+            return True
 
-        return self.room
+
+def input_request(player_inventory, player, map):
+    choice = input('> ')
+    # seperates user input at any space, returns list
+    command = choice.split(' ')[0]
+    try:
+        object: Optional[str] = choice.split(' ')[1]
+    # if an Index Error (aka no object returned) set object to none
+    except IndexError:
+        # if no second in list, set object to None
+        object = None
+    if command in ('i', 'interact'):
+        if object is None:
+            print("With what?")
+            object = input('WITH> ')
+        new_item: Optional[str] = PlayerLocation.interactables.get(object).interact(player_inventory)
+        if new_item is not None:
+            player_inventory.append(new_item)
+            print('>>>INV:', player_inventory)
+            return PlayerLocation.room
+    elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
+        print('WORRRRKKKKK')
+        return player.move(command, map)
+
+    else:
+        return PlayerLocation.room
+
+
+
+    #elif command in ('d', 'desc', 'description'):
+    #    print(self.description)
+    #    return PlayerLocation.room
+    #elif command in ('h', 'help'):
+    #    print('This is the list of commands.')
+    #    return PlayerLocation.room
+#
+    #elif len(choice.split(' ')) == 2:
+    #    command = choice.split(' ')[0]
+    #    object = choice.split(' ')[1]
+    #    print(object)
+    #    try:
+    #        new_item = self.interactables.get(object).interact(player_inventory, command)
+    #        if new_item is not None:
+    #            player_inventory.append(new_item)
+    #            print('>>>INV:', player_inventory)
+    #            return PlayerLocation.room
+    #        else:
+    #            return PlayerLocation.room
+    #    except AttributeError:
+    #        print('Please enter a valid response.')
+    #        return PlayerLocation.room
+#
+    #else:
+    #    print('Please enter a valid response.')
+    #    return PlayerLocation.room
+#
+    #return PlayerLocation.room        #    print(self.visited_description)
+
+class PlayerActions():
+
+    def __init__(self, player_location: PlayerLocation):
+        self.player_location = player_location
+
 
 class Interactables(object):
     action_1: Optional[str] = None
@@ -215,7 +249,7 @@ class Interaction(object):
 
 class Failure(object):
 
-    def __init__(self, room: int, name: str, description: str):
+    def __init__(self, room: Room, name: str, description: str):
         self.name = name
         self.description = description
 
@@ -238,11 +272,11 @@ class Failure(object):
 
 class RoomGuide(object):
 
-    foyer = Player_Location(1, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
-    hallway = Player_Location(2, 'hallway')
-    kitchen = Player_Location(3, 'kitchen')
-    master_bedroom = Player_Location(4, 'Master Bedroom')
-    failure = Failure(5, 'failure', 'You failed! Play again?')
+    foyer = PlayerLocation(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
+    hallway = PlayerLocation(Room.HALLWAY, 'hallway')
+    kitchen = PlayerLocation(Room.KITCHEN, 'kitchen')
+    master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom')
+    failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
 
     fireplace = Interactables('fireplace')
     piano = Interactables('piano')
@@ -256,15 +290,15 @@ class RoomGuide(object):
     music = Interaction('music sheets', 'They have a song on them.')
     music.item = True
 
-    foyer.forward = Room.HALLWAY
+    foyer.forward = hallway
     foyer.interactables = {'fireplace': fireplace, 'piano': piano}
-    hallway.back = Room.FOYER
-    hallway.left = Room.KITCHEN
-    hallway.right = Room.MASTER_BEDROOM
+    hallway.back = foyer
+    hallway.left = kitchen
+    hallway.right = master_bedroom
     hallway.interactables = {'portrait': portrait} #'bust': bust,
                             #'landscape painting': landscape_painting
-    master_bedroom.left = Room.HALLWAY
-    kitchen.right = Room.HALLWAY
+    master_bedroom.left = hallway
+    kitchen.right = hallway
 
     piano.description = '''A beautiful piano covered in dust sits on the
                             far right end of the foyer.'''.replace('    ', '')
@@ -275,7 +309,7 @@ class RoomGuide(object):
     piano.interaction = {'play': play, 'music': music}
     portrait.description = '''An old women with black hair in a fine purple gown
                                 stares back at you. You swear a sinsiter smile slowly curls
-                                across it the longer you look at it.'''.replace('   ', '')
+                                across her face the longer you look at it.'''.replace('   ', '')
 
     play.key = 'music sheets'
     play.unlock = 'You play a beautiful song.'
@@ -295,17 +329,15 @@ class RoomGuide(object):
     def __init__(self, room: Room):
         self.room = room
 
-    def next_room(self, room_name: Room) -> Player_Location:
-        print(type(self.room_guide.get(room_name)))
+    def next_room(self, room_name: Room) -> PlayerLocation:
         new_room = self.room_guide.get(room_name)
         return new_room
 
-    def start_guide(self) -> Player_Location:
-        print(type(self.next_room(self.room)))
+    def start_guide(self) -> PlayerLocation:
         return self.next_room(self.room)
 
 
-
 a_map = RoomGuide(Room.FOYER)
-a_game = Engine(a_map)
+a_player = Player(a_map.start_guide(), [], [])
+a_game = Engine(a_map, a_player)
 a_game.room_change()
