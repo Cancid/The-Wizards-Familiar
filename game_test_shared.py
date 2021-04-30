@@ -25,9 +25,9 @@ class Engine(object):
             # enters the current_room
             self.map.display()
             #print('>>>>>>', current_room)
-            moved = current_room.enter(self.player, self.no_desc, self.map)
+            current_room.describe(self.player, self.no_desc)
             # if map returns no room tells player they can't go that way
-
+            moved = input_request(player, map)
             if not moved:
                 print("You can't go that way.")
                 #returns to beginning of while loop
@@ -60,7 +60,7 @@ class PlayerLocation(object):
         self.description = description
 
     # "enters" the room
-    def enter(self, player, no_desc: list[int], map: str) -> Room:
+    def describe(self, player, no_desc: list[int]) -> Room:
         if self.room in player.visited and self.room in no_desc:
             pass
         elif self.room in player.visited:
@@ -70,7 +70,6 @@ class PlayerLocation(object):
             print(f"This is the {self.name}. {self.description} What do you do?")
             no_desc.append(self.room)
 
-        return input_request(player, map)
 
 class Player(object):
 
