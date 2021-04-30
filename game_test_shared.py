@@ -3,7 +3,6 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
-    player_inventory: list[str] = []
     visited: list[object] = [] #what would this be?
     no_desc: list[object] = []
 
@@ -26,7 +25,7 @@ class Engine(object):
             # enters the current_room
             self.map.display()
             #print('>>>>>>', current_room)
-            moved = current_room.enter(self.player, self.player_inventory, self.visited, self.no_desc, self.map)
+            moved = current_room.enter(self.player, self.visited, self.no_desc, self.map)
             # if map returns no room tells player they can't go that way
 
             if not moved:
@@ -61,7 +60,7 @@ class PlayerLocation(object):
         self.description = description
 
     # "enters" the room
-    def enter(self, player, player_inventory: list[str], visited: list[int], no_desc: list[int], map: str) -> Room:
+    def enter(self, player, visited: list[int], no_desc: list[int], map: str) -> Room:
         if self.room in visited and self.room in no_desc:
             pass
         elif self.room in visited:
@@ -72,7 +71,7 @@ class PlayerLocation(object):
             visited.append(self.room)
             no_desc.append(self.room)
 
-        return input_request(player_inventory, player, map)
+        return input_request(player, map)
 
 class Player(object):
 
@@ -108,8 +107,11 @@ class Player(object):
             self.location = new_location
             return True
 
+    def add_item(self, new_item):
+        self.inventory.append(new_item)
 
-def input_request(player_inventory, player, map):
+
+def input_request(player, map):
     choice = input('> ')
     # seperates user input at any space, returns list
     command = choice.split(' ')[0]
@@ -123,17 +125,17 @@ def input_request(player_inventory, player, map):
         if object is None:
             print("With what?")
             object = input('WITH> ')
-        new_item: Optional[str] = PlayerLocation.interactables.get(object).interact(player_inventory)
+        new_item: Optional[str] = player.location.interactables.get(object).interact(player.inventory) #TODO: typo error
         if new_item is not None:
-            player_inventory.append(new_item)
-            print('>>>INV:', player_inventory)
-            return PlayerLocation.room
+            player.add_item(new_item)
+            print('>>>INV:', player.inventory)
+            return True
     elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
         print('WORRRRKKKKK')
         return player.move(command, map)
 
     else:
-        return PlayerLocation.room
+        return True
 
 
 
