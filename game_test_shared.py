@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
-    visited: list[object] = [] #what would this be?
+     #what would this be?
     no_desc: list[object] = []
 
     # Sets the room location init from class
@@ -25,7 +25,7 @@ class Engine(object):
             # enters the current_room
             self.map.display()
             #print('>>>>>>', current_room)
-            moved = current_room.enter(self.player, self.visited, self.no_desc, self.map)
+            moved = current_room.enter(self.player, self.no_desc, self.map)
             # if map returns no room tells player they can't go that way
 
             if not moved:
@@ -60,15 +60,14 @@ class PlayerLocation(object):
         self.description = description
 
     # "enters" the room
-    def enter(self, player, visited: list[int], no_desc: list[int], map: str) -> Room:
-        if self.room in visited and self.room in no_desc:
+    def enter(self, player, no_desc: list[int], map: str) -> Room:
+        if self.room in player.visited and self.room in no_desc:
             pass
-        elif self.room in visited:
+        elif self.room in player.visited:
             print(f'You are in the {self.name}. This room was visited. What do you do?')
             no_desc.append(self.room)
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
-            visited.append(self.room)
             no_desc.append(self.room)
 
         return input_request(player, map)
@@ -105,6 +104,8 @@ class Player(object):
             return False
         else:
             self.location = new_location
+            if new_location not in self.visited:
+                self.visited.append(new_location.room)
             return True
 
     def add_item(self, new_item):
