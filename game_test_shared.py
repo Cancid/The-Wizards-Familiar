@@ -4,12 +4,13 @@ from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, 
 
 class Engine(object):
      #what would this be?
-    no_desc: list[object] = []
+
 
     # Sets the room location init from class
     def __init__(self, room_location: object, player):
         self.player = player
         map = mapper.Map()
+        print(map)
         self.room_location = room_location
         map.generate_map_from_room_guide(room_location)
         self.map = map
@@ -25,9 +26,10 @@ class Engine(object):
             # enters the current_room
             self.map.display()
             #print('>>>>>>', current_room)
-            current_room.describe(self.player, self.no_desc)
+            current_room.describe(self.player)
+            self.player.visited.append(self.player.location.room)
             # if map returns no room tells player they can't go that way
-            moved = input_request(player, map)
+            moved = input_request(self.player, self.map)
             if not moved:
                 print("You can't go that way.")
                 #returns to beginning of while loop
@@ -54,34 +56,35 @@ class PlayerLocation(object):
     interactables: Optional[dict] = None
 
     # inits the current room with mandatory and optional variables
-    def __init__(self, room: Room, name: str, description: str = 'No description'):
+    def __init__(self, room: Room, name: str, description: str = 'No description', no_desc: bool = False):
         self.room = room
         self.name = name
         self.description = description
+        self.no_desc = no_desc
 
     # "enters" the room
-    def describe(self, player, no_desc: list[int]) -> Room:
-        if self.room in player.visited and self.room in no_desc:
+    def describe(self, player) -> Room:
+        if player.no_desc == True:
             pass
         elif self.room in player.visited:
             print(f'You are in the {self.name}. This room was visited. What do you do?')
-            no_desc.append(self.room)
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
-            no_desc.append(self.room)
 
 
 class Player(object):
 
-    def __init__(self, location, inventory, visited):
+    def __init__(self, location, inventory, visited, no_desc):
         self.location = location
         self.inventory = inventory
         self.visited = visited
+        self.no_desc = no_desc
 
     def move(self, command, map):
 
     #if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
-        Engine.no_desc.pop()
+        self.no_desc = False
+        print(self.location.no_desc)
         if command in ('f', 'forward'):
             if self.location.forward:
                 map.update_player("forward")
@@ -103,9 +106,18 @@ class Player(object):
             return False
         else:
             self.location = new_location
-            if new_location not in self.visited:
-                self.visited.append(new_location.room)
             return True
+
+    def interact(self, command, object):
+        if object is None:
+            print("With what?")
+            object = input('WITH> ')
+        new_item: Optional[str] = player.location.interactables.get(object).interact(player.inventory) #TODO: typo error
+        if new_item is not None:
+            player.add_item(new_item)
+            print('>>>INV:', player.inventory)
+        player.no_desc = True
+        return True
 
     def add_item(self, new_item):
         self.inventory.append(new_item)
@@ -122,19 +134,13 @@ def input_request(player, map):
         # if no second in list, set object to None
         object = None
     if command in ('i', 'interact'):
-        if object is None:
-            print("With what?")
-            object = input('WITH> ')
-        new_item: Optional[str] = player.location.interactables.get(object).interact(player.inventory) #TODO: typo error
-        if new_item is not None:
-            player.add_item(new_item)
-            print('>>>INV:', player.inventory)
-            return True
+        return player.interact(command, object)
+
     elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
-        print('WORRRRKKKKK')
         return player.move(command, map)
 
     else:
+        print("Please enter a valid resposne.")
         return True
 
 
@@ -168,18 +174,11 @@ def input_request(player, map):
 #
     #return PlayerLocation.room        #    print(self.visited_description)
 
-class PlayerActions():
-
-    def __init__(self, player_location: PlayerLocation):
-        self.player_location = player_location
-
-
 class Interactables(object):
     action_1: Optional[str] = None
     action_2: Optional[str]= None
     interaction: Optional[dict] = None
     description: Optional[str] = None
-    no_desc: bool = False
     # init an interactable with optional actions
     def __init__(self, name: str):
         self.name = name
@@ -190,13 +189,12 @@ class Interactables(object):
 
     # allows player to choose what to do with object
     def interact(self, player_inventory: list[str], choice: Optional[str] = None) -> None:
-        if self.no_desc == False:
-            print(self.description)
-            if self.interaction is not None:
-                # print(self.interaction)
-                for act in self.interaction.values():
-                    if act.description is not None and act.active == True:
-                        print(act.description)
+        print(self.description)
+        if self.interaction is not None:
+            # print(self.interaction)
+            for act in self.interaction.values():
+                if act.description is not None and act.active == True:
+                    print(act.description)
         if choice is None:
             choice = input('>OBJECT ')
         if choice == self.action_1:
@@ -239,6 +237,7 @@ class Interaction(object):
                     print(self.unlock)
                 else:
                     print(self.purpose)
+
         else:
             print(self.purpose)
             if self.item == True:
@@ -246,7 +245,8 @@ class Interaction(object):
                 self.active = False
                 return self.name
 
-        return self.name
+
+
 
 
 class Failure(object):
@@ -340,6 +340,6 @@ class RoomGuide(object):
 
 
 a_map = RoomGuide(Room.FOYER)
-a_player = Player(a_map.start_guide(), [], [])
+a_player = Player(a_map.start_guide(), [], [], False)
 a_game = Engine(a_map, a_player)
 a_game.room_change()
