@@ -112,11 +112,11 @@ class Player(object):
         if object is None:
             print("With what?")
             object = input('WITH> ')
-        new_item: Optional[str] = player.location.interactables.get(object).interact(player.inventory) #TODO: typo error
+        new_item: Optional[str] = self.location.interactables.get(object).interact(self.inventory) #TODO: typo error
         if new_item is not None:
-            player.add_item(new_item)
-            print('>>>INV:', player.inventory)
-        player.no_desc = True
+            self.add_item(new_item)
+            print('>>>INV:', self.inventory)
+        self.no_desc = True
         return True
 
     def add_item(self, new_item):
@@ -135,7 +135,6 @@ def input_request(player, map):
         object = None
     if command in ('i', 'interact'):
         return player.interact(command, object)
-
     elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
         return player.move(command, map)
 
