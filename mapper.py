@@ -27,7 +27,7 @@ class Position:
         int_y = int(y.strip())
         return Position(int_x, int_y)
 
-    
+
     def forward(self):
         return Position(self.x, self.y + 1)
 
@@ -63,7 +63,7 @@ class Map:
             row_string = ""
             for x, item in enumerate(row):
                 if (
-                    self.player_location is not None 
+                    self.player_location is not None
                     and self.player_location.x == x
                     and self.player_location.y == y
                 ):
@@ -77,7 +77,7 @@ class Map:
                 else:
                     row_string += self.empty_icon.center(self.justification)
             print(row_string)
-    
+
     def update_player(self, direction):
         if direction == "forward":
             self.player_location.y -= 2 # Because map is oriented "backwards"
@@ -94,13 +94,13 @@ class Map:
     # left
     # right
     # forward
-    # back 
+    # back
     def generate_map_from_room_guide(self, room_guide):
         print("Generating map:")
         # =====================================================================
         # Generate a dictionary mapping string describing a position to strings
         # describing a room
-        # 
+        #
         # E.g. {"0, 4": "connector"}
         # =====================================================================
         map_dict = {}
@@ -135,8 +135,8 @@ class Map:
         # =====================================================================
         # Turn map dictionary into a 2d array that represents the map
         # TODO: I hate using strings here, look into python "enums"
-        # 
-        # E.g. 
+        #
+        # E.g.
         # [
         #   ["empty", "empty", "room", "empty", "empty"],
         #   ["room", "connector", "room", "connector", "room"],
@@ -186,5 +186,5 @@ class Map:
             map_array[non_negative_y][non_negative_x] = value
             if position.x == 0 and position.y == 0:
                 self.player_location = Position(non_negative_x, non_negative_y)
-        
+
         self.map_array = map_array

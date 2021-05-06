@@ -1,4 +1,5 @@
 import mapper
+from threading import Timer
 from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
@@ -108,16 +109,28 @@ class Player(object):
             self.location = new_location
             return True
 
-    def interact(self, command, object):
-        if object is None:
-            print("With what?")
-            object = input('WITH> ')
-        new_item: Optional[str] = self.location.interactables.get(object).interact(self.inventory) #TODO: typo error
-        if new_item is not None:
-            self.add_item(new_item)
-            print('>>>INV:', self.inventory)
-        self.no_desc = True
-        return True
+    def interact(self, command, object): # TODO: if room has no interactables ERROR
+        while object is None:
+            if object not in self.location.interactables:
+                print("With what?")
+                object = input('WITH> ')
+            if object in ('e', 'exit'):
+                return
+            else:
+                try:
+                    interactable = self.location.interactables.get(object)
+                    if command not in interactable.interaction:
+                        command = None
+                    new_item = interactable.interact(self.inventory, command)
+                    if new_item is not None:
+                        self.add_item(new_item)
+                        print('>>>INV:', self.inventory)
+                    self.no_desc = True
+                except:
+                    object = None
+
+
+
 
     def add_item(self, new_item):
         self.inventory.append(new_item)
@@ -133,10 +146,22 @@ def input_request(player, map):
     except IndexError:
         # if no second in list, set object to None
         object = None
-    if command in ('i', 'interact'):
-        return player.interact(command, object)
-    elif command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
+
+    if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
         return player.move(command, map)
+
+    elif command in ('i', 'interact') or object in player.location.interactables:
+        # TODO: typing command and object outputs nothing, make inputs like 'piano' work
+        player.interact(command, object)
+        return True
+
+    elif command in ('d', 'desc', 'description'):
+        print(player.location.description)
+        player.no_desc = True
+        return True
+    elif command in ('h', 'help'):
+        print('This is a list of commands.')
+        return True
 
     else:
         print("Please enter a valid resposne.")
@@ -175,9 +200,11 @@ def input_request(player, map):
 
 class Interactables(object):
     action_1: Optional[str] = None
-    action_2: Optional[str]= None
+    action_2: Optional[str] = None
+    item_1: Optional[str] = None
     interaction: Optional[dict] = None
     description: Optional[str] = None
+    timer = False
     # init an interactable with optional actions
     def __init__(self, name: str):
         self.name = name
@@ -194,23 +221,50 @@ class Interactables(object):
             for act in self.interaction.values():
                 if act.description is not None and act.active == True:
                     print(act.description)
-        if choice is None:
+        while choice is None:
             choice = input('>OBJECT ')
-        if choice == self.action_1:
-            object = str(self.action_1)
-        elif choice == self.action_2:
-            object = str(self.action_2)
-        else:
-            print('Please enter a valid response.')
-            self.no_desc = True
-            self.interact(player_inventory)
-        try:
-            new_item = self.interaction.get(object).use(player_inventory)
-            print('NEW_ITEM AFTER INT:', new_item)
-            self.no_desc = False
-            return new_item
-        except:
-            pass
+            if choice == self.action_1:
+                object = str(self.action_1)
+            elif choice == self.action_2:
+                object = str(self.action_2)
+            elif choice.split(' ')[0] in ('g', 'get', 't', 'take'):
+                try:
+                    object = str(choice.split(' ')[1])
+                except IndexError:
+                    object = None
+                while object not in (self.interaction, 'e', 'exit'):
+                    print("With what?")
+                    object = input('WITH> ')
+                if object in ('e', 'exit'):
+                    return None
+            elif choice in ('e', 'exit'):
+                return None
+            else:
+                print('Please enter a valid response.')
+                choice = None
+        #if self.timer is True:
+        #    timeout = 10
+        #    t = Timer(timeout, print, ['Sorry, times up'])
+        #    t.start()
+        #    prompt = "You have %d seconds to choose the correct answer...\n" % timeout
+        #    if choice is self.action_1 or self.action_2:
+        #        print('TIMER CANCELED')
+        #        t.cancel()
+        new_item = self.interaction.get(object).use(player_inventory)
+        print('NEW_ITEM AFTER INT:', new_item)
+        self.no_desc = False
+
+
+        return new_item
+
+    #def timer():
+    #    timeout = 10
+    #    t = Timer(timeout, print, ['Sorry, times up'])
+    #    t.start()
+    #    prompt = "You have %d seconds to choose the correct answer...\n" % timeout
+    #    if interact():
+    #        t.cancel()
+
 
 
 class Interaction(object):
@@ -243,9 +297,6 @@ class Interaction(object):
                 print(f'You take the {self.name}.')
                 self.active = False
                 return self.name
-
-
-
 
 
 class Failure(object):
@@ -291,6 +342,8 @@ class RoomGuide(object):
     music = Interaction('music sheets', 'They have a song on them.')
     music.item = True
 
+    run = Interaction('run', 'You run away.')
+
     foyer.forward = hallway
     foyer.interactables = {'fireplace': fireplace, 'piano': piano}
     hallway.back = foyer
@@ -308,9 +361,13 @@ class RoomGuide(object):
     piano.action_1 = 'play'
     piano.action_2 = 'music'
     piano.interaction = {'play': play, 'music': music}
-    portrait.description = '''An old women with black hair in a fine purple gown
+    portrait.description = '''An old woman with black hair in a fine purple gown
                                 stares back at you. You swear a sinsiter smile slowly curls
                                 across her face the longer you look at it.'''.replace('   ', '')
+    portrait.interaction = {'run': run}
+    portrait.action_1 = 'run'
+    portrait.timer = True
+
 
     play.key = 'music sheets'
     play.unlock = 'You play a beautiful song.'
