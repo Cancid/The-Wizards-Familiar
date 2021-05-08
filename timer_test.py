@@ -7,7 +7,6 @@ prompt = "You have %d seconds to choose the correct answer...\n" % timeout
 answer = input(prompt)
 while answer not in 'y':
     print('Incorrect!')
-    break
 else:
     t.cancel()
     print('You did it!')
