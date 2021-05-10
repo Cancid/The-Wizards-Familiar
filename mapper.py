@@ -95,7 +95,7 @@ class Map:
     # right
     # forward
     # back
-    def generate_map_from_room_guide(self, room_guide):
+    def generate_map_from_room_guide(self, first_room):
         print("Generating map:")
         # =====================================================================
         # Generate a dictionary mapping string describing a position to strings
@@ -104,7 +104,6 @@ class Map:
         # E.g. {"0, 4": "connector"}
         # =====================================================================
         map_dict = {}
-        first_room = room_guide.next_room(room_guide.room)
         queue = [(Position(0,0), first_room)]
 
         while len(queue) > 0:
@@ -115,22 +114,19 @@ class Map:
             # Add connectors to dictionary of positions
             # also add connected rooms to "to-do" list
             # TODO: Ugly
-            forward_room = room_guide.next_room(cur_room.forward)
-            back_room = room_guide.next_room(cur_room.back)
-            right_room = room_guide.next_room(cur_room.right)
-            left_room = room_guide.next_room(cur_room.left)
-            if str(cur_pos.forward()) not in map_dict and forward_room is not None:
+
+            if str(cur_pos.forward()) not in map_dict and cur_room.forward is not None:
                 map_dict[str(cur_pos.forward())] = "v_conn"
-                queue.append((cur_pos.forward().forward(), forward_room))
-            if str(cur_pos.back()) not in map_dict and back_room is not None:
+                queue.append((cur_pos.forward().forward(), cur_room.forward))
+            if str(cur_pos.back()) not in map_dict and cur_room.back is not None:
                 map_dict[str(cur_pos.back())] = "v_conn"
-                queue.append((cur_pos.back().back(), back_room))
-            if str(cur_pos.right()) not in map_dict and right_room is not None:
+                queue.append((cur_pos.back().back(), cur_room.back))
+            if str(cur_pos.right()) not in map_dict and cur_room.right is not None:
                 map_dict[str(cur_pos.right())] = "h_conn"
-                queue.append((cur_pos.right().right(), right_room))
-            if str(cur_pos.left()) not in map_dict and left_room is not None:
+                queue.append((cur_pos.right().right(), cur_room.right))
+            if str(cur_pos.left()) not in map_dict and cur_room.left is not None:
                 map_dict[str(cur_pos.left())] = "h_conn"
-                queue.append((cur_pos.left().left(), left_room))
+                queue.append((cur_pos.left().left(), cur_room.left))
 
         # =====================================================================
         # Turn map dictionary into a 2d array that represents the map
