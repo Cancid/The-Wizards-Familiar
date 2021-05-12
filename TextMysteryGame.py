@@ -6,10 +6,7 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
-     #what would this be?
 
-
-    # Sets the room location init from class
     def __init__(self, player):
         self.player = player
         map = mapper.Map()
@@ -18,42 +15,38 @@ class Engine(object):
         self.map = map
 
     def start(self) -> None:
-        # passes the room_location to RoomGuide
+        title = open('title.txt', 'r')
+        print(title.read())
+        print('\n')
         current_room = self.player.location
-        #print(">>> Current room:", current_room)
         finished = False
-        # loops engine till game is over
         while finished != True:
-            # enters the current_room
             self.map.display()
-            #print('>>>>>>', current_room)
             current_room.describe(self.player)
             self.player.visited.append(self.player.location.name)
-            # if map returns no room tells player they can't go that way
             moved = input_request(self.player, self.map)
             if not moved:
                 print("You can't go that way.")
-                #returns to beginning of while loop
                 continue
-            # sets the RoomGuide to room returned by the previos rooms enter()
             print(self.player.location.name)
-            current_room = self.player.location#.next_room(self.player.location.room)
+            current_room = self.player.location
             print(str(current_room))
-            # loop repeats
-            #print("Current room after while:", current_room)
 
 class Room(Enum):
     FOYER = 0
     HALLWAY = 1
     KITCHEN = 2
     MASTER_BEDROOM = 3
-    FAILURE = 4
+    LANDING = 4
+    FAILURE = 5
 
 class PlayerLocation(object):
     left = None
     right = None
     forward = None
     back = None
+    up = None
+    down = None
     teleport = None
     interactables: Optional[dict] = None
 
@@ -114,6 +107,19 @@ class Player(object):
                 self.last_moved.append('b')
                 map.update_player("back")
             new_location = self.location.back
+        elif command in ('u', 'up'):
+            if self.location.up:
+                self.last_moved.pop(0)
+                self.last_moved.append('u')
+                map.update_player('up')
+            new_location = self.location.up
+        elif command in ('d', 'down'):
+            if self.location.down:
+                self.last_moved.pop(0)
+                self.last_moved.append('d')
+                map.update_player('down')
+            new_location = self.location.down
+
 
         if not new_location:
             return False
@@ -124,18 +130,21 @@ class Player(object):
             return True
 
     def interact(self, command, object): # TODO: if room has no interactables ERROR
-        while object is None:
+        while object not in self.location.interactables and object not in self.inventory:
             print("With what?")
             object = input('WITH> ')
             if object in ('e', 'exit'):
                 return
-            elif object not in self.location.interactables:
+            elif object not in self.location.interactables and object not in self.inventory:
                 print('Please enter a valid respone.')
                 object = None
-        interactable = self.location.interactables.get(object)
-        if interactable is None:
+        if object in self.location.interactables:
+            interactable = self.location.interactables.get(object)
+        elif object in self.inventory:
+            interactable = usable_items.get(object)
+        elif interactable is None:
             print('No object with that name in this room.')
-            return 
+            return
         if command not in interactable.interaction:
             command = None
         new_item = interactable.interact(self, command)
@@ -149,6 +158,7 @@ class Player(object):
 
     def add_item(self, new_item):
         self.inventory.append(new_item)
+        print(self.inventory)
 
 
 def input_request(player, map):
@@ -164,10 +174,11 @@ def input_request(player, map):
     print(object)
     print(player.location.interactables)
 
-    if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back'):
+    if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
+                    'u', 'up', 'd', 'down'):
         return player.move(command, map)
 
-    elif command in ('i', 'interact') or object in player.location.interactables.keys():
+    elif command in ('i', 'interact') or object in player.location.interactables.keys() or object in player.inventory:
         # TODO: typing command and object outputs nothing, make inputs like 'piano' work
         player.interact(command, object)
         return True
@@ -189,7 +200,7 @@ def input_request(player, map):
 class Interactables(object):
     action_1: Optional[str] = None
     action_2: Optional[str] = None
-    item_1: Optional[str] = None
+    item: Optional[str] = None
     interaction: Optional[dict] = None
     description: Optional[str] = None
     timer = False
@@ -204,56 +215,48 @@ class Interactables(object):
     # allows player to choose what to do with object
     def interact(self, player, choice: Optional[str] = None) -> None:
         print(self.description)
+        if self.item == True:
+            player.inventory.append(self.name)
+            self.item = False
+            print(f'You pick up the {self.name}.')
         if self.interaction is not None:
             # print(self.interaction)
             for act in self.interaction.values():
                 if act.description is not None and act.active == True:
                     print(act.description)
-        object = choice
-        while choice is None:
+        while choice not in self.interaction or not ('e', 'exit'):
             choice = input('>OBJECT ')
+            if choice.split(' ')[0] in ('g', 'get', 't', 'take'):
+                try:
+                    choice = str(choice.split(' ')[1])
+                except IndexError:
+                    choice = None
+                while choice not in self.interaction or not ('e', 'exit'):
+                    print("With what?")
+                    choice = str(input('WITH> '))
             if choice == self.action_1:
                 object = str(self.action_1)
             elif choice == self.action_2:
                 object = str(self.action_2)
-            elif choice.split(' ')[0] in ('g', 'get', 't', 'take'):
-                try:
-                    object = str(choice.split(' ')[1])
-                except IndexError:
-                    object = None
-                while object not in (self.interaction, 'e', 'exit'):
-                    print("With what?")
-                    object = input('WITH> ')
-                if object in ('e', 'exit'):
-                    return None
             elif choice in ('e', 'exit'):
                 return None
             else:
                 print('Please enter a valid response.')
                 choice = None
-        #if self.timer is True:
-        #    timeout = 10
-        #    t = Timer(timeout, print, ['Sorry, times up'])
-        #    t.start()
-        #    prompt = "You have %d seconds to choose the correct answer...\n" % timeout
-        #    if choice is self.action_1 or self.action_2:
-        #        print('TIMER CANCELED')
-        #        t.cancel()
-        new_item = self.interaction.get(object).use(player)
+        if self.timer is True:
+            timeout = 10
+            t = Timer(timeout, print, ['Sorry, times up'])
+            t.start()
+            prompt = "You have %d seconds to choose the correct answer...\n" % timeout
+            if choice == self.action_1 or self.action_2:
+                print('TIMER CANCELED')
+                t.cancel()
+        object = choice
+        new_item = self.interaction.get(object).use(player, self.name)
         print('NEW_ITEM AFTER INT:', new_item)
         self.no_desc = False
 
-
         return new_item
-
-    #def timer():
-    #    timeout = 10
-    #    t = Timer(timeout, print, ['Sorry, times up'])
-    #    t.start()
-    #    prompt = "You have %d seconds to choose the correct answer...\n" % timeout
-    #    if interact():
-    #        t.cancel()
-
 
 
 class Interaction(object):
@@ -268,7 +271,7 @@ class Interaction(object):
         self.purpose = purpose
         self.description = description
 
-    def use(self, player):
+    def use(self, player, interactable):
         if self.active == False:
             return None
         print("INV:", player.inventory)
@@ -286,11 +289,10 @@ class Interaction(object):
                 print(self.unlock)
             else:
                 print(self.purpose)
-
         else:
             print(self.purpose)
             if self.item == True:
-                print(f'You take the {self.name}.')
+                print(f'You take the {interactable}.')
                 self.active = False
                 return self.name
 
@@ -301,7 +303,7 @@ class Landscape(object):
     landscape: Optional[list] = None
     interaction = None
     description: Optional[str] = None
-    # init an interactable with optional actions
+
     def __init__(self, name: str):
         self.name = name
 
@@ -317,10 +319,11 @@ class Landscape(object):
             choice = input('>OBJECT ')
             if choice == self.action_1:
                 player.location = player.location.teleport[spin]
+                player.last_moved = [None, None, None, None]
                 return new_item
             elif choice == self.action_2:
                 object = str(self.action_2)
-                new_item = self.interaction.get(object).use(player_inventory)
+                new_item = self.interaction.get(object).use(self.player)
                 return new_item
             elif choice in ('e', 'exit'):
                 return None
@@ -353,82 +356,88 @@ class Failure(object):
 
 
 
+foyer = PlayerLocation(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
+hallway = PlayerLocation(Room.HALLWAY, 'hallway')
+kitchen = PlayerLocation(Room.KITCHEN, 'kitchen')
+master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom')
+landing = PlayerLocation(Room.LANDING, 'landing')
+failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
+
+fireplace = Interactables('fireplace')
+piano = Interactables('piano')
+portrait = Interactables('portrait')
+landscape = Landscape('landscape painting')
+box = Interactables('box')
+#bust = Interactables('bust')
+#landscape_painting = Interactables('landscape_painting')
+#cabinet = Interactables('cabinet')
+#bed = Interactables('bed')
+open_item = Interaction('open', 'It is locked.')
+play = Interaction('play', 'You play the piano.')
+music = Interaction('music sheets', 'They have a song on them.')
+music.item = True
+
+run = Interaction('run', 'You run away.')
+
+foyer.forward = hallway
+foyer.interactables = {'fireplace': fireplace, 'piano': piano}
+hallway.back = foyer
+hallway.left = kitchen
+hallway.right = master_bedroom
+hallway.up = landing
+hallway.teleport = [foyer, kitchen, master_bedroom]
+hallway.interactables = {'portrait': portrait, 'landscape': landscape} #'bust': bust,
+                        #'landscape painting': landscape_painting
+master_bedroom.left = hallway
+master_bedroom.interactables = {'box': box}
+kitchen.right = hallway
+landing.down = hallway
+
+piano.description = '''A beautiful piano covered in dust sits on the
+                        far right end of the foyer.'''.replace('    ', '')
+
+fireplace.description = 'You feel warm.'
+
+piano.action_1 = 'play'
+piano.action_2 = 'music'
+piano.interaction = {'play': play, 'music': music}
+
+portrait.description = '''An old woman with black hair in a fine purple gown
+                            stares back at you. You swear a sinsiter smile slowly curls
+                            across her face the longer you look at it.'''.replace('   ', '')
+portrait.interaction = {'run': run}
+portrait.action_1 = 'run'
+portrait.timer = True
+
+landscape.landscape = ['foyer', 'kitchen', 'master_bedroom']
+landscape.interaction = {'run': run}
+landscape.action_1 = 'stare'
+landscape.action_2 = 'run'
+
+box.description = 'A locked box.'
+box.interaction = {'open': open_item}
+box.item = True
+box.action_1 = 'open'
+open_item.key = 'puzzle_solve'
+open_item.unlock = 'The box opens.'
+play.key = 'music sheets'
+play.unlock = 'You play a beautiful song.'
+
+music.description = 'Sheets of music are still placed on it.'
+
+usable_items = {'box': box}
+
+PUZZLE_SOLUTION = ['l', 'l', 'r', 'r']
+
+
 class RoomGuide(object):
-
-    foyer = PlayerLocation(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
-    hallway = PlayerLocation(Room.HALLWAY, 'hallway')
-    kitchen = PlayerLocation(Room.KITCHEN, 'kitchen')
-    master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom')
-    failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
-
-    fireplace = Interactables('fireplace')
-    piano = Interactables('piano')
-    portrait = Interactables('portrait')
-    landscape = Landscape('landscape painting')
-    box = Interactables('box')
-    #bust = Interactables('bust')
-    #landscape_painting = Interactables('landscape_painting')
-    #cabinet = Interactables('cabinet')
-    #bed = Interactables('bed')
-    open = Interaction('open', 'It is locked.')
-    play = Interaction('play', 'You play the piano.')
-    music = Interaction('music sheets', 'They have a song on them.')
-    music.item = True
-
-    run = Interaction('run', 'You run away.')
-
-    foyer.forward = hallway
-    foyer.interactables = {'fireplace': fireplace, 'piano': piano}
-    hallway.back = foyer
-    hallway.left = kitchen
-    hallway.right = master_bedroom
-    hallway.teleport = [foyer, kitchen, master_bedroom]
-    hallway.interactables = {'portrait': portrait, 'landscape': landscape} #'bust': bust,
-                            #'landscape painting': landscape_painting
-    master_bedroom.left = hallway
-    master_bedroom.interactables = {'box': box}
-    kitchen.right = hallway
-
-    piano.description = '''A beautiful piano covered in dust sits on the
-                            far right end of the foyer.'''.replace('    ', '')
-
-    fireplace.description = 'You feel warm.'
-
-    piano.action_1 = 'play'
-    piano.action_2 = 'music'
-    piano.interaction = {'play': play, 'music': music}
-
-    portrait.description = '''An old woman with black hair in a fine purple gown
-                                stares back at you. You swear a sinsiter smile slowly curls
-                                across her face the longer you look at it.'''.replace('   ', '')
-    portrait.interaction = {'run': run}
-    portrait.action_1 = 'run'
-    portrait.timer = True
-
-    landscape.landscape = ['foyer', 'kitchen', 'master_bedroom']
-    landscape.interaction = {'run': run}
-    landscape.action_1 = 'stare'
-    landscape.action_2 = 'run'
-
-    box.description = 'A locked box.'
-    box.interaction = {'open': open}
-    box.action_1 = 'open'
-    open.key = 'puzzle_solve'
-    open.unlock = 'The box opens.'
-
-
-
-    play.key = 'music sheets'
-    play.unlock = 'You play a beautiful song.'
-
-    music.description = 'Sheets of music are still placed on it.'
-
 
     room_guide = {
         Room.FOYER: foyer,
         Room.HALLWAY: hallway,
         Room.KITCHEN: kitchen,
         Room.MASTER_BEDROOM: master_bedroom,
+        Room.LANDING: landing,
         Room.FAILURE: failure
     }
 
@@ -439,7 +448,6 @@ class RoomGuide(object):
         new_room = self.room_guide.get(room_name)
         return new_room
 
-PUZZLE_SOLUTION = ['l', 'l', 'r', 'r']
 
 a_map = RoomGuide(Room.FOYER)
 a_player = Player(a_map.next_room(a_map.room), [], [], [], False)
