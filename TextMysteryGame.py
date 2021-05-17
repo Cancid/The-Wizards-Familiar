@@ -1,5 +1,4 @@
 import mapper
-import inspect
 from random import randint
 from threading import Timer
 from enum import Enum
@@ -14,10 +13,16 @@ class Engine(object):
         map.generate_map_from_room_guide(player.location)
         self.map = map
 
-    def start(self) -> None:
+    def play(self):
         title = open('title.txt', 'r')
         print(title.read())
         print('\n')
+        enter = input('Press ENTER to Play'.center(90))
+        if enter == '':
+            self.start()
+
+    def start(self) -> None:
+
         current_room = self.player.location
         finished = False
         while finished != True:
@@ -38,6 +43,8 @@ class Room(Enum):
     KITCHEN = 2
     MASTER_BEDROOM = 3
     LANDING = 4
+    SECRET_ROOM = 5
+    STUDY = 6
     FAILURE = 5
 
 class PlayerLocation(object):
@@ -48,6 +55,7 @@ class PlayerLocation(object):
     up = None
     down = None
     teleport = None
+    lock = False
     interactables: Optional[dict] = None
 
     # inits the current room with mandatory and optional variables
@@ -66,6 +74,21 @@ class PlayerLocation(object):
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
 
+    def locked(self):
+        print('The door is locked, what is the code?')
+        code = input('CODE> ')
+        if code == LOCK_SOLUTION:
+            self.locked = False
+            print('You unlock the door.')
+            return True
+        elif code in ('e', 'exit'):
+            return False
+        else:
+            print('Incorrect code. The door remains locked.')
+            return False
+
+
+
 
 class Player(object):
 
@@ -79,8 +102,10 @@ class Player(object):
         self.no_desc = no_desc
 
 
-    def move(self, command, map):
 
+    def move(self, command, map):
+        if self.location == foyer and SECRET_ROOM_SOLUTION == True:
+            self.location.left = secret_room
         self.no_desc = False
         print(self.location.no_desc)
         if command in ('f', 'forward'):
@@ -125,7 +150,11 @@ class Player(object):
             return False
         else:
             self.location = new_location
-            if self.last_moved == PUZZLE_SOLUTION:
+            if self.location.lock == True:
+                self.location.locked()
+                # TODO: ignore directional pop & append instead of resetting
+                self.last_moved = [None, None, None, None]
+            if self.last_moved == BOX_SOLUTION:
                 self.puzzles.append('puzzle_solve')
             return True
 
@@ -136,7 +165,7 @@ class Player(object):
             if object in ('e', 'exit'):
                 return
             elif object not in self.location.interactables and object not in self.inventory:
-                print('Please enter a valid respone.')
+                print('Please enter a valid response.')
                 object = None
         if object in self.location.interactables:
             interactable = self.location.interactables.get(object)
@@ -145,13 +174,14 @@ class Player(object):
         elif interactable is None:
             print('No object with that name in this room.')
             return
-        if command not in interactable.interaction:
-            command = None
+        if interactable.interaction:
+            if command not in interactable.interaction:
+                command = None
         new_item = interactable.interact(self, command)
         if new_item is not None:
             self.add_item(new_item)
             print('>>>INV:', self.inventory)
-        self.no_desc = True
+            self.no_desc = True
 
     def change_room(self, room):
         player.location = player.location[room]
@@ -184,12 +214,15 @@ def input_request(player, map):
         return True
 
 
-    elif command in ('d', 'desc', 'description'):
+    elif command in ('desc', 'description'):
         print(player.location.description)
         player.no_desc = True
         return True
     elif command in ('h', 'help'):
         print('This is a list of commands.')
+        return True
+    elif command in ('inv'):
+        print(player.inventory)
         return True
 
     else:
@@ -215,6 +248,15 @@ class Interactables(object):
     # allows player to choose what to do with object
     def interact(self, player, choice: Optional[str] = None) -> None:
         print(self.description)
+        if self.timer == True:
+            timeout = 10
+            t = Timer(1, print, ['Sorry, times up'])
+            t.start()
+            prompt = "You have %d seconds to choose the correct answer...\n" % timeout
+            print(prompt)
+            if choice == self.action_1 or self.action_2:
+                print('TIMER CANCELED')
+                t.cancel()
         if self.item == True:
             player.inventory.append(self.name)
             self.item = False
@@ -224,39 +266,32 @@ class Interactables(object):
             for act in self.interaction.values():
                 if act.description is not None and act.active == True:
                     print(act.description)
-        while choice not in self.interaction or not ('e', 'exit'):
-            choice = input('>OBJECT ')
-            if choice.split(' ')[0] in ('g', 'get', 't', 'take'):
-                try:
-                    choice = str(choice.split(' ')[1])
-                except IndexError:
+            while choice not in self.interaction or not ('e', 'exit'):
+                choice = input('>OBJECT ')
+                if choice.split(' ')[0] in ('g', 'get', 't', 'take'):
+                    try:
+                        choice = str(choice.split(' ')[1])
+                        return choice
+                    except IndexError:
+                        print('Get what?')
+                        choice = None
+                if choice == self.action_1:
+                    object = str(self.action_1)
+                elif choice == self.action_2:
+                    object = str(self.action_2)
+                elif choice in ('e', 'exit'):
+                    return None
+                else:
+                    print('What would you like to interact with?')
                     choice = None
-                while choice not in self.interaction or not ('e', 'exit'):
-                    print("With what?")
-                    choice = str(input('WITH> '))
-            if choice == self.action_1:
-                object = str(self.action_1)
-            elif choice == self.action_2:
-                object = str(self.action_2)
-            elif choice in ('e', 'exit'):
-                return None
-            else:
-                print('Please enter a valid response.')
-                choice = None
-        if self.timer is True:
-            timeout = 10
-            t = Timer(timeout, print, ['Sorry, times up'])
-            t.start()
-            prompt = "You have %d seconds to choose the correct answer...\n" % timeout
-            if choice == self.action_1 or self.action_2:
-                print('TIMER CANCELED')
-                t.cancel()
-        object = choice
-        new_item = self.interaction.get(object).use(player, self.name)
-        print('NEW_ITEM AFTER INT:', new_item)
-        self.no_desc = False
-
-        return new_item
+            object = choice
+            new_item = self.interaction.get(object).use(player, self.name)
+            print('NEW_ITEM AFTER INT:', new_item)
+            self.no_desc = False
+            return new_item
+        else:
+            new_item = None
+            return new_item
 
 
 class Interaction(object):
@@ -280,7 +315,7 @@ class Interaction(object):
         was_unlocked = False
         if self.key is not None:
             for i in player.inventory:
-                if i == self.key:
+                if i in self.key:
                     was_unlocked = True
             for i in player.puzzles:
                 if i == self.key:
@@ -357,17 +392,22 @@ class Failure(object):
 
 
 foyer = PlayerLocation(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
+secret_room = PlayerLocation(Room.SECRET_ROOM, 'secret_room')
 hallway = PlayerLocation(Room.HALLWAY, 'hallway')
-kitchen = PlayerLocation(Room.KITCHEN, 'kitchen')
+kitchen = PlayerLocation(Room.KITCHEN, 'kitchen', "A small kitchen compared to the rest of the house. It looks like it hasn't been used in years.")
 master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom')
 landing = PlayerLocation(Room.LANDING, 'landing')
+study = PlayerLocation(Room.STUDY, 'study')
 failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
-
 fireplace = Interactables('fireplace')
 piano = Interactables('piano')
 portrait = Interactables('portrait')
 landscape = Landscape('landscape painting')
 box = Interactables('box')
+pantry = Interactables('pantry')
+cabinet = Interactables('cabinet')
+ice_box = Interactables('icebox')
+oven = Interactables('oven')
 #bust = Interactables('bust')
 #landscape_painting = Interactables('landscape_painting')
 #cabinet = Interactables('cabinet')
@@ -375,12 +415,24 @@ box = Interactables('box')
 open_item = Interaction('open', 'It is locked.')
 play = Interaction('play', 'You play the piano.')
 music = Interaction('music sheets', 'They have a song on them.')
+newt_oil = Interaction('newt oil', 'On the top shelf is a bottle labaled "Newt Oil". You hear something swimming around inside.')
+self_praising_flower = Interaction('self praising flower', 'On the bottome shelf is a bag labeled "Self Praising Flower". The flower seems to be hyping itself up.')
+true_sweetener = Interaction('true sweetener', 'You notice a box labeled "True Sweetener". The box reads: /"ONLY USE ONE./"')
+hippogryph_eggs = Interaction('hippogryph eggs', 'A carton of hippogryph eggs is the only thing left here. They are rainbow in color. Grade A.')
+bake = Interaction('tasty treat', "You don't have enough ingrediants to bake with.")
+
 music.item = True
+newt_oil.item = True
+self_praising_flower.item = True
+hippogryph_eggs.item = True
+true_sweetener.item = True
+
 
 run = Interaction('run', 'You run away.')
 
 foyer.forward = hallway
 foyer.interactables = {'fireplace': fireplace, 'piano': piano}
+secret_room.right = foyer
 hallway.back = foyer
 hallway.left = kitchen
 hallway.right = master_bedroom
@@ -391,7 +443,10 @@ hallway.interactables = {'portrait': portrait, 'landscape': landscape} #'bust': 
 master_bedroom.left = hallway
 master_bedroom.interactables = {'box': box}
 kitchen.right = hallway
+kitchen.interactables = {'pantry': pantry, 'cabinet': cabinet, 'icebox': ice_box, 'oven': oven}
 landing.down = hallway
+landing.left = study
+study.lock = True
 
 piano.description = '''A beautiful piano covered in dust sits on the
                         far right end of the foyer.'''.replace('    ', '')
@@ -402,13 +457,22 @@ piano.action_1 = 'play'
 piano.action_2 = 'music'
 piano.interaction = {'play': play, 'music': music}
 
-portrait.description = '''An old woman with black hair in a fine purple gown
-                            stares back at you. You swear a sinsiter smile slowly curls
-                            across her face the longer you look at it.'''.replace('   ', '')
-portrait.interaction = {'run': run}
-portrait.action_1 = 'run'
-portrait.timer = True
+portrait.description = '''A portrait of an old wizard. As you approach a large
+                            grin spreads a cross his face.'''.replace('   ', '')
 
+pantry.description = "A pantry left mostly bare but a few ingrediants."
+pantry.interaction = {'flower': self_praising_flower, 'oil': newt_oil}
+pantry.action_1 = 'flower'
+pantry.action_2 = 'oil'
+cabinet.description = "A cabinet with spice bottles left mostly empty."
+cabinet.interaction = {'sweetener': true_sweetener}
+cabinet.action_1 = 'sweetener'
+ice_box.description = 'You open the lid. Strangely, there is no ice in it but its still freezing cold.'
+ice_box.interaction = {'eggs': hippogryph_eggs}
+ice_box.action_1 = 'eggs'
+oven.description = "It hasn't been used in years. But it still has power. Although you aren't sure from where..."
+oven.interaction = {'bake': bake}
+oven.action_1 = 'bake'
 landscape.landscape = ['foyer', 'kitchen', 'master_bedroom']
 landscape.interaction = {'run': run}
 landscape.action_1 = 'stare'
@@ -422,22 +486,32 @@ open_item.key = 'puzzle_solve'
 open_item.unlock = 'The box opens.'
 play.key = 'music sheets'
 play.unlock = 'You play a beautiful song.'
+bake.key = ('self praising flower', 'hippogryph eggs', 'newt oil', 'true sweetener')
+bake.unlock = 'You bake a tasty treat.'
+
 
 music.description = 'Sheets of music are still placed on it.'
 
 usable_items = {'box': box}
 
-PUZZLE_SOLUTION = ['l', 'l', 'r', 'r']
+BOX_SOLUTION = ['l', 'l', 'r', 'r']
+SECRET_ROOM_SOLUTION = True
+LOCK_SOLUTION = str(randint(100, 999))
+print(LOCK_SOLUTION)
+
+
 
 
 class RoomGuide(object):
 
     room_guide = {
         Room.FOYER: foyer,
+        Room.SECRET_ROOM: secret_room,
         Room.HALLWAY: hallway,
         Room.KITCHEN: kitchen,
         Room.MASTER_BEDROOM: master_bedroom,
         Room.LANDING: landing,
+        Room.STUDY: study,
         Room.FAILURE: failure
     }
 
@@ -452,4 +526,4 @@ class RoomGuide(object):
 a_map = RoomGuide(Room.FOYER)
 a_player = Player(a_map.next_room(a_map.room), [], [], [], False)
 a_game = Engine(a_player)
-a_game.start()
+a_game.play()
