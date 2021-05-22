@@ -5,21 +5,25 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
-
     def __init__(self, player):
         self.player = player
         map = mapper.Map()
         print(map)
         map.generate_map_from_room_guide(player.location)
         self.map = map
+        
 
     def play(self):
+        test = 'test'
+        #gui.output(test)
         title = open('title.txt', 'r')
-        print(title.read())
-        print('\n')
-        enter = input('Press ENTER to Play'.center(90))
-        if enter == '':
-            self.start()
+        #gui.output(title.read())
+        #gui.output('\n')
+        #gui.output('Press ENTER to Play'.center(90))
+        enter = input()
+        #if enter == '':
+            #self.start()
+        
 
     def start(self) -> None:
 
@@ -36,6 +40,50 @@ class Engine(object):
             print(self.player.location.name)
             current_room = self.player.location
             print(str(current_room))
+
+
+    def process_input(self, command):
+        try:
+            object: Optional[str] = choice.split(' ')[1]
+        # if an Index Error (aka no object returned) set object to none
+        except IndexError:
+            # if no second in list, set object to None
+            object = None
+        if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
+                        'u', 'up', 'd', 'down'):
+            return self.player.move(command, map)
+
+        elif command in ('i', 'interact') or object in self.player.location.interactables.keys() or object in self.player.inventory:
+            # TODO: make inputs like 'piano' work
+            self.player.interact(command, object)
+            return True
+
+
+        elif command in ('desc', 'description'):
+            print(self.player.location.description)
+            self.player.no_desc = True
+            return True
+        elif command in ('h', 'help'):
+            print('This is a list of commands.')
+            return True
+        elif command in ('inv'):
+            print(self.player.inventory)
+            return True
+
+        else:
+            print("Please enter a valid resposne.")
+            return True
+
+
+
+    def input_request(self):
+        choice = input('> ')
+        # seperates user input at any space, returns list
+        command = choice.split(' ')[0]
+        return self.process_input(command)
+
+    
+        
 
 class Room(Enum):
     FOYER = 0
@@ -73,7 +121,7 @@ class PlayerLocation(object):
         if player.no_desc == True:
             pass
         elif self.name in player.visited:
-            print(f'You are in the {self.name}. This room was visited. What do you do?')
+            gui.output(f'You are in the {self.name}. This room was visited. What do you do?')
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
 
@@ -192,44 +240,6 @@ class Player(object):
         self.inventory.append(new_item)
         print(self.inventory)
 
-
-def input_request(player, map):
-    choice = input('> ')
-    # seperates user input at any space, returns list
-    command = choice.split(' ')[0]
-    try:
-        object: Optional[str] = choice.split(' ')[1]
-    # if an Index Error (aka no object returned) set object to none
-    except IndexError:
-        # if no second in list, set object to None
-        object = None
-    print(object)
-    print(player.location.interactables)
-
-    if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
-                    'u', 'up', 'd', 'down'):
-        return player.move(command, map)
-
-    elif command in ('i', 'interact') or object in player.location.interactables.keys() or object in player.inventory:
-        # TODO: make inputs like 'piano' work
-        player.interact(command, object)
-        return True
-
-
-    elif command in ('desc', 'description'):
-        print(player.location.description)
-        player.no_desc = True
-        return True
-    elif command in ('h', 'help'):
-        print('This is a list of commands.')
-        return True
-    elif command in ('inv'):
-        print(player.inventory)
-        return True
-
-    else:
-        print("Please enter a valid resposne.")
-        return True
 
 
 class Interactables(object):
@@ -706,7 +716,4 @@ class RoomGuide(object):
         return new_room
 
 
-a_map = RoomGuide(Room.FOYER)
-a_player = Player(a_map.next_room(a_map.room), ['letter'], [], [], False)
-a_game = Engine(a_player)
-a_game.play()
+
