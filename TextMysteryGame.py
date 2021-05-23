@@ -1,3 +1,4 @@
+from input import input_request
 import mapper
 from random import randint
 from threading import Timer
@@ -5,60 +6,79 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
+    interacting = False
     def __init__(self, player):
         self.player = player
         map = mapper.Map()
         print(map)
         map.generate_map_from_room_guide(player.location)
         self.map = map
+
         
 
     def play(self):
-        test = 'test'
-        #gui.output(test)
         title = open('title.txt', 'r')
-        #gui.output(title.read())
-        #gui.output('\n')
-        #gui.output('Press ENTER to Play'.center(90))
+        return title.read()
+        print('\n')
+        print('Press ENTER to Play'.center(90))
         enter = input()
         #if enter == '':
             #self.start()
         
 
-    def start(self) -> None:
+    #def start(self) -> None:    
+  
+    #def input_request(self, player_entry):
+        #choice = input()
+        #seperates user input at any space, returns list
+        #command = choice.split(' ')[0]
+        #return self.process_input(command)
 
-        current_room = self.player.location
-        finished = False
-        while finished != True:
+    def input_request(self, command):
+        
+        print(self.player.interaction_state)
+        if self.player.interaction_state == None:
+            try:
+                object: Optional[str] = command.split(' ')[1]
+                command = command.split(' ')[0]
+                 # if an Index Error (aka no object returned) set object to none
+            except IndexError:
+                # if no second in list, set object to None
+                object = None
+            moved = self.process_input(command, object)
+            if not moved:
+                print("You can't go that way.")
+            current_room = self.player.location
+            #finished = False
             self.map.display()
             current_room.describe(self.player)
             self.player.visited.append(self.player.location.name)
-            moved = input_request(self.player, self.map)
-            if not moved:
-                print("You can't go that way.")
-                continue
-            print(self.player.location.name)
-            current_room = self.player.location
-            print(str(current_room))
+        elif self.player.interaction_state == 'room':
+            self.player.interact(None, command)
+        elif self.player.interaction_state != None:
+            print(self.player.location.interactables.get(self.player.interaction_state))
+            interactable = self.player.location.interactables.get(self.player.interaction_state)
+            interactable.interact(self.player, command)
 
 
-    def process_input(self, command):
-        try:
-            object: Optional[str] = choice.split(' ')[1]
-        # if an Index Error (aka no object returned) set object to none
-        except IndexError:
-            # if no second in list, set object to None
-            object = None
+
+    def process_input(self, command, object):
+        #current_room = self.player.location
+       
         if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
                         'u', 'up', 'd', 'down'):
-            return self.player.move(command, map)
+            return self.player.move(command, self.map)
 
-        elif command in ('i', 'interact') or object in self.player.location.interactables.keys() or object in self.player.inventory:
-            # TODO: make inputs like 'piano' work
-            self.player.interact(command, object)
-            return True
-
-
+        elif command in ('i', 'interact'): 
+            if object in self.player.location.interactables.keys() or object in self.player.inventory:
+                # TODO: make inputs like 'piano' work
+                self.player.interact(command, object)
+                return True
+            else:
+                print('With what?')
+                self.player.interaction_state = 'room'
+                return True
+            
         elif command in ('desc', 'description'):
             print(self.player.location.description)
             self.player.no_desc = True
@@ -74,16 +94,6 @@ class Engine(object):
             print("Please enter a valid resposne.")
             return True
 
-
-
-    def input_request(self):
-        choice = input('> ')
-        # seperates user input at any space, returns list
-        command = choice.split(' ')[0]
-        return self.process_input(command)
-
-    
-        
 
 class Room(Enum):
     FOYER = 0
@@ -121,7 +131,7 @@ class PlayerLocation(object):
         if player.no_desc == True:
             pass
         elif self.name in player.visited:
-            gui.output(f'You are in the {self.name}. This room was visited. What do you do?')
+            print(f'You are in the {self.name}. This room was visited. What do you do?')
         else:
             print(f"This is the {self.name}. {self.description} What do you do?")
 
@@ -140,10 +150,10 @@ class PlayerLocation(object):
 
 
 
-
 class Player(object):
 
     last_moved = [None, None, None, None]
+    interaction_state = None
 
     def __init__(self, location, inventory, puzzles, visited, no_desc):
         self.location = location
@@ -208,10 +218,12 @@ class Player(object):
                 self.puzzles.append('puzzle_solve')
             return True
 
-    def interact(self, command, object): # TODO: if room has no interactables ERROR
+    def interact(self, command, object): 
+        
+        # TODO: if room has no interactables ERROR
         while object not in self.location.interactables and object not in self.inventory:
-            print("With what?")
-            object = input('WITH> ')
+            #print("With what?")
+            #object = input_request(command)
             if object in ('e', 'exit'):
                 return
             elif object not in self.location.interactables and object not in self.inventory:
@@ -283,32 +295,36 @@ class Interactables(object):
             for act in self.interaction.values():
                 if act.description is not None and act.active == True:
                     print(act.description)
-            while choice not in self.interaction or not ('e', 'exit'):
-                choice = input('>OBJECT ')
-                if choice.split(' ')[0] in ('g', 'get', 't', 'take'):
-                    try:
-                        choice = str(choice.split(' ')[1])
-                        return choice
-                    except IndexError:
-                        print('Get what?')
-                        choice = None
-                if choice == self.action_1:
-                    object = str(self.action_1)
-                elif choice == self.action_2:
-                    object = str(self.action_2)
-                elif choice in ('e', 'exit'):
-                    return None
-                else:
-                    print('What would you like to interact with?')
-                    choice = None
-            object = choice
-            new_item = self.interaction.get(object).use(player, self.name)
-            print('NEW_ITEM AFTER INT:', new_item)
-            self.no_desc = False
-            return new_item
-        else:
+                    
+        if choice not in self.interaction or not ('e', 'exit'):
+            player.interaction_state = self.name
             new_item = None
             return new_item
+        elif choice.split(' ')[0] in ('g', 'get', 't', 'take'):
+            try:
+                choice = str(choice.split(' ')[1])
+                return choice
+            except IndexError:
+                print('Get what?')
+                choice = None
+        if choice == self.action_1:
+                object = str(self.action_1)
+        elif choice == self.action_2:
+                object = str(self.action_2)
+        elif choice in ('e', 'exit'):
+                return None
+        else:
+            print('What would you like to interact with?')
+            choice = None
+        object = choice
+        new_item = self.interaction.get(object).use(player, self.name)
+        print('NEW_ITEM AFTER INT:', new_item)
+        self.no_desc = False
+        player.interaction_state = None
+        return new_item
+    #else:
+        #new_item = None
+        #return new_item
 
 
 class Interaction(object):
