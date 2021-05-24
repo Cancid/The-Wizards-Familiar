@@ -14,25 +14,16 @@ class Engine(object):
         map.generate_map_from_room_guide(player.location)
         self.map = map
 
-        
 
     def play(self):
         title = open('title.txt', 'r')
-        return title.read()
-        print('\n')
-        print('Press ENTER to Play'.center(90))
-        enter = input()
+        self.player.output(title.read())
+        self.player.output('\n')
+        self.player.output('Press ENTER to Play'.center(90))
+       
         #if enter == '':
             #self.start()
-        
-
-    #def start(self) -> None:    
-  
-    #def input_request(self, player_entry):
-        #choice = input()
-        #seperates user input at any space, returns list
-        #command = choice.split(' ')[0]
-        #return self.process_input(command)
+    
 
     def input_request(self, command):
         
@@ -133,7 +124,7 @@ class PlayerLocation(object):
         elif self.name in player.visited:
             print(f'You are in the {self.name}. This room was visited. What do you do?')
         else:
-            print(f"This is the {self.name}. {self.description} What do you do?")
+            player.output(f"This is the {self.name}. {self.description} What do you do?")
 
     def locked(self):
         print('The door is locked, what is the code?')
@@ -149,7 +140,6 @@ class PlayerLocation(object):
             return False
 
 
-
 class Player(object):
 
     last_moved = [None, None, None, None]
@@ -161,6 +151,10 @@ class Player(object):
         self.puzzles = puzzles
         self.visited = visited
         self.no_desc = no_desc
+
+    game_text = ''
+    def output(self, text):
+        self.game_text = self.game_text + '\n' + text
 
 
     def move(self, command, map):
@@ -261,6 +255,7 @@ class Interactables(object):
     interaction: Optional[dict] = None
     description: Optional[str] = None
     timer = False
+
     # init an interactable with optional actions
     def __init__(self, name: str):
         self.name = name
@@ -270,10 +265,6 @@ class Interactables(object):
         return self.name
 
    
-
-
-
-
     # allows player to choose what to do with object
     def interact(self, player, choice: Optional[str] = None) -> None:
         print(self.description)
@@ -433,27 +424,6 @@ class Code_Interactable(object):
             return new_item
 
 
-#class Failure(object):
-
-#    def __init__(self, room: Room, name: str, description: str):
-#        self.name = name
-#        self.description = description
-#
-#    def __str__(self):
-#        return 'failure'
-#
-#    def enter(self, player_inventory: list[str]) -> str:
-#        print(self.description)
-##        if choice == 'y':
-#            a_game.room_change()
-#        if choice == 'n':
-#            exit(1)
-#        else:
-#            print('Please select a valid response.')
-#            return 'failure'
-#        return 'failure'
-
-
 
 foyer = PlayerLocation(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
 secret_room = PlayerLocation(Room.SECRET_ROOM, 'secret_room')
@@ -465,7 +435,6 @@ study = PlayerLocation(Room.STUDY, 'study')
 garden = PlayerLocation(Room.GARDEN, 'garden')
 closet = PlayerLocation(Room.CLOSET, 'closet')
 ritual_room = PlayerLocation(Room.RITUAL_ROOM, 'ritual room')
-#failure = Failure(Room.FAILURE, 'failure', 'You failed! Play again?')
 
 
 
@@ -721,7 +690,6 @@ class RoomGuide(object):
         Room.LANDING: landing,
         Room.STUDY: study,
         Room.CLOSET: closet
-#        Room.FAILURE: failure
     }
 
     def __init__(self, room: Room):

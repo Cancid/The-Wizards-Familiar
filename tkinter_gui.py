@@ -21,20 +21,17 @@ def init_gui(engine):
     ent_player_act.grid(row=3, column=1, pady=10, ipady=10)
 
     game_output = StringVar()
-    lb_game = Label(mainframe, width=100, height=25, pady=10, padx=10, textvariable=game_output, justify=LEFT, anchor=NW, relief='solid', borderwidth=5)
+    lb_game = Label(mainframe, width=100, height=25, pady=10, padx=10, textvariable=game_output, justify=CENTER, anchor=NW, relief='solid', borderwidth=5)
     lb_game.grid(row=2, column=1)
+
+    def output():
+        game_output.set(engine.player.game_text)
 
     def player_action(event, engine):
         action = ent_player_act.get()
         ent_player_act.delete(0, END)
         engine.input_request(action)
-
-    def output(text):
-        game_script = '\n' + text
-        game_output.set(game_output.get() + game_script)
-        # NOTE: Could be slow with large amounts of text
-       
-
+        output()
 
     root.bind("<Return>", lambda event, arg=engine: player_action(event, arg))
 
