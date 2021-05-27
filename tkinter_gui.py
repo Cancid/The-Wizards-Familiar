@@ -20,12 +20,22 @@ def init_gui(engine):
     ent_player_act = Entry(mainframe, width=50)
     ent_player_act.grid(row=3, column=1, pady=10, ipady=10)
 
-    game_output = StringVar()
-    lb_game = Label(mainframe, width=100, height=25, pady=10, padx=10, textvariable=game_output, justify=CENTER, anchor=NW, relief='solid', borderwidth=5)
-    lb_game.grid(row=2, column=1)
+
+    scroll_bar = Scrollbar(mainframe, orient=VERTICAL, width=10)
+    scroll_bar.grid( row=1, column=3)
+
+    t_game = Text(mainframe, width=100, height=25, pady=10, padx=10, relief='solid', borderwidth=5)
+    t_game.grid(row=2, column=1)
+
+    t_game.configure(yscrollcommand=scroll_bar.set)
+    scroll_bar.config(command=t_game.yview)
 
     def output():
-        game_output.set(engine.player.game_text)
+        game_output = engine.player.game_text
+        t_game.configure(state="normal")
+        t_game.insert(END, game_output)
+        t_game.see(END)
+        t_game.configure(state="disabled")
 
     def player_action(event, engine):
         action = ent_player_act.get()
@@ -35,6 +45,7 @@ def init_gui(engine):
 
     root.bind("<Return>", lambda event, arg=engine: player_action(event, arg))
 
+    output()
     #root.bind("<Return>", player_action)
     print(root)
     return root

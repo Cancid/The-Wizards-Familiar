@@ -17,32 +17,29 @@ class Engine(object):
 
     def play(self):
         title = open('title.txt', 'r')
-        self.player.output(title.read())
-        self.player.output('\n')
-        self.player.output('Press ENTER to Play'.center(90))
-       
+        self.player.output((title.read() + '\n Press ENTER to Play').center(90))
+        print(title.read() + '\n Press ENTER to Play'.center(90))
         #if enter == '':
             #self.start()
     
 
     def input_request(self, command):
-        
+        try:
+            object: Optional[str] = command.split(' ')[1]
+            command = command.split(' ')[0]
+            # if an Index Error (aka no object returned) set object to none
+        except IndexError:
+            # if no second in list, set object to None
+            object = None
         print(self.player.interaction_state)
         if self.player.interaction_state == None:
-            try:
-                object: Optional[str] = command.split(' ')[1]
-                command = command.split(' ')[0]
-                 # if an Index Error (aka no object returned) set object to none
-            except IndexError:
-                # if no second in list, set object to None
-                object = None
             moved = self.process_input(command, object)
             if not moved:
-                print("You can't go that way.")
+                self.player.output("You can't go that way.")
             current_room = self.player.location
-            #finished = False
             self.map.display()
-            current_room.describe(self.player)
+            if self.player.no_desc == False and self.player.interaction_state == None:
+                current_room.describe(self.player)
             self.player.visited.append(self.player.location.name)
         elif self.player.interaction_state == 'room':
             self.player.interact(None, command)
@@ -55,34 +52,38 @@ class Engine(object):
 
     def process_input(self, command, object):
         #current_room = self.player.location
-       
+        
         if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
                         'u', 'up', 'd', 'down'):
             return self.player.move(command, self.map)
 
-        elif command in ('i', 'interact'): 
+        elif command in ('i', 'interact'):
+            print('OBJECT>>>>>', object) 
             if object in self.player.location.interactables.keys() or object in self.player.inventory:
+                print("I did this.")
                 # TODO: make inputs like 'piano' work
                 self.player.interact(command, object)
                 return True
             else:
-                print('With what?')
+                print("Proccess Input - Interact - No Object")
+                self.player.output('With what?')
                 self.player.interaction_state = 'room'
+                print(self.player.interaction_state)
                 return True
             
         elif command in ('desc', 'description'):
-            print(self.player.location.description)
+            self.player.output(self.player.location.description)
             self.player.no_desc = True
             return True
         elif command in ('h', 'help'):
-            print('This is a list of commands.')
+            self.player.output('This is a list of commands.')
             return True
         elif command in ('inv'):
-            print(self.player.inventory)
+            self.player.output(str((self.player.inventory)))
             return True
 
         else:
-            print("Please enter a valid resposne.")
+            self.player.output("Please enter a valid resposne.")
             return True
 
 
@@ -122,21 +123,21 @@ class PlayerLocation(object):
         if player.no_desc == True:
             pass
         elif self.name in player.visited:
-            print(f'You are in the {self.name}. This room was visited. What do you do?')
+            player.output(f'You are in the {self.name}. This room was visited. What do you do?')
         else:
             player.output(f"This is the {self.name}. {self.description} What do you do?")
 
-    def locked(self):
-        print('The door is locked, what is the code?')
+    def locked(self, player):
+        player.output('The door is locked, what is the code?')
         code = input('CODE> ')
         if code == LOCK_SOLUTION:
             self.locked = False
-            print('You unlock the door.')
+            player.output('You unlock the door.')
             return True
         elif code in ('e', 'exit'):
             return False
         else:
-            print('Incorrect code. The door remains locked.')
+            player.output('Incorrect code. The door remains locked.')
             return False
 
 
@@ -154,8 +155,7 @@ class Player(object):
 
     game_text = ''
     def output(self, text):
-        self.game_text = self.game_text + '\n' + text
-
+        self.game_text = '\n\n' + text
 
     def move(self, command, map):
         if self.location == foyer and SECRET_ROOM_SOLUTION == True:
@@ -215,36 +215,36 @@ class Player(object):
     def interact(self, command, object): 
         
         # TODO: if room has no interactables ERROR
-        while object not in self.location.interactables and object not in self.inventory:
-            #print("With what?")
-            #object = input_request(command)
-            if object in ('e', 'exit'):
-                return
-            elif object not in self.location.interactables and object not in self.inventory:
-                print('Please enter a valid response.')
-                object = None
-        if object in self.location.interactables:
+        
+        if object in ('e', 'exit'):
+            print("Player - Interact- Exit")
+            self.interaction_state = None
+            self.location.describe(self)
+            return
+        elif object not in self.location.interactables and object not in self.inventory:
+            print("Player - Interact - Invalid Response")
+            self.output('Please enter a valid response.')
+            return 
+        elif object in self.location.interactables:
+            print("Player - Interact - Location Interactable")
             interactable = self.location.interactables.get(object)
         elif object in self.inventory:
             interactable = usable_items.get(object)
-        elif interactable is None:
-            print('No object with that name in this room.')
-            return
-        if interactable.interaction:
-            if command not in interactable.interaction:
-                command = None
-        new_item = interactable.interact(self, command)
-        if new_item is not None:
-            self.add_item(new_item)
-            print('>>>INV:', self.inventory)
+        interactable.describe(self)
+        if command not in interactable.interaction:
+            print("Player - Interact - No Command")
+            self.interaction_state = str(interactable)
+            print(self.interaction_state)
+        else:
+            new_item = interactable.interact(self, command)
+            if new_item is not None:
+                self.add_item(new_item)
+                self.output('>>>INV:', self.inventory)
             self.no_desc = True
-
-    def change_room(self, room):
-        player.location = player.location[room]
 
     def add_item(self, new_item):
         self.inventory.append(new_item)
-        print(self.inventory)
+        self.output(self.inventory)
 
 
 
@@ -264,51 +264,36 @@ class Interactables(object):
     def __str__(self):
         return self.name
 
-   
-    # allows player to choose what to do with object
-    def interact(self, player, choice: Optional[str] = None) -> None:
-        print(self.description)
-        if self.timer == True:
-            timeout = 10
-            t = Timer(1, print, ['Sorry, times up'])
-            t.start()
-            prompt = "You have %d seconds to choose the correct answer...\n" % timeout
-            print(prompt)
-            if choice == self.action_1 or self.action_2:
-                print('TIMER CANCELED')
-                t.cancel()
-        if self.item == True:
-            player.inventory.append(self.name)
-            self.item = False
-            print(f'You pick up the {self.name}.')
+    def describe(self, player):
+        print(">>>>", self)
+        print(player)
+        description = f"{self.description}"
         if self.interaction is not None:
             # print(self.interaction)
             for act in self.interaction.values():
                 if act.description is not None and act.active == True:
-                    print(act.description)
-                    
-        if choice not in self.interaction or not ('e', 'exit'):
-            player.interaction_state = self.name
-            new_item = None
-            return new_item
-        elif choice.split(' ')[0] in ('g', 'get', 't', 'take'):
+                    description += act.description
+        player.output(description)
+
+    # allows player to choose what to do with object
+    def interact(self, player, command: Optional[str] = None) -> None:
+        if self.item == True:
+            player.inventory.append(self.name)
+            self.item = False
+            player.output(f'You pick up the {self.name}.')
+        if command.split(' ')[0] in ('g', 'get', 't', 'take'):
             try:
-                choice = str(choice.split(' ')[1])
-                return choice
+                command = str(command.split(' ')[1])
+                return command
             except IndexError:
-                print('Get what?')
-                choice = None
-        if choice == self.action_1:
-                object = str(self.action_1)
-        elif choice == self.action_2:
-                object = str(self.action_2)
-        elif choice in ('e', 'exit'):
-                return None
-        else:
-            print('What would you like to interact with?')
-            choice = None
-        object = choice
-        new_item = self.interaction.get(object).use(player, self.name)
+                player.output('Get what?')
+                return
+        elif command not in self.interaction or not ('e', 'exit'):
+            player.output("Please enter a valid response.")
+            player.interaction_state = 'room'
+            return
+        elif command == self.action_1 or self.action_2:
+          new_item = self.interaction.get(command).use(player, self.name)
         print('NEW_ITEM AFTER INT:', new_item)
         self.no_desc = False
         player.interaction_state = None
@@ -317,6 +302,15 @@ class Interactables(object):
         #new_item = None
         #return new_item
 
+  #if self.timer == True:
+  #          timeout = 10
+  #          t = Timer(1, print, ['Sorry, times up'])
+  #          t.start()
+  #          prompt = "You have %d seconds to choose the correct answer...\n" % timeout
+  #          print(prompt)
+  #          if choice == self.action_1 or self.action_2:
+  #              print('TIMER CANCELED')
+  #              t.cancel()
 
 class Interaction(object):
     active: bool = True
@@ -347,17 +341,17 @@ class Interaction(object):
                 if i == self.key:
                     was_unlocked = True
             if was_unlocked == True:
-                print(self.unlock)
+                player.output(self.unlock)
                 if self.item == True:
-                    print(f'You take the {self.name}.')
+                    player.output(f'You take the {self.name}.')
                     self.active = False
                     return self.name
             else:
-                print(self.purpose)
+                player.output(self.purpose)
         else:
-            print(self.purpose)
+            player.output(self.purpose)
             if self.key == None and self.item == True:
-                print(f'You take the {self.name}.')
+                player.output(f'You take the {self.name}.')
                 self.active = False
                 return self.name
 
@@ -374,7 +368,7 @@ class Landscape(object):
 
 
     def interact(self, player, choice: Optional[str] = None) -> None:
-        print(self.description)
+        player.output(self.description)
         spin = randint(0, 2)
         land = self.landscape[spin]
         print(land)
@@ -393,7 +387,7 @@ class Landscape(object):
             elif choice in ('e', 'exit'):
                 return None
             else:
-                print('Please enter a valid response.')
+                player.output('Please enter a valid response.')
                 choice = None
         self.no_desc = False
 
@@ -411,15 +405,15 @@ class Code_Interactable(object):
         self.name = name
 
     def interact(self, player, choice: Optional[str] = None) -> None:
-        print(self.description)
+        player.output(self.description)
         code = input("CODE> ")
         if code == self.solution:
-            print(self.unlock)
+            player.output(self.unlock)
             if self.item != None:
                 new_item = self.item
             return new_item
         else:
-            print(self.locked)
+            player.output(self.locked)
             new_item = None
             return new_item
 
@@ -565,10 +559,10 @@ oven.interaction = {'bake': bake}
 oven.action_1 = 'bake'
 
     #FEYLEAF
-plant = Interactables('feyleaf')
-plant.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce."
-plant.interaction = {'leaf': leaf}
-plant.action_1 = 'leaf'
+feyleaf = Interactables('feyleaf')
+feyleaf.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce."
+feyleaf.interaction = {'leaf': leaf}
+feyleaf.action_1 = 'leaf'
 
     #SPELLBOOK
 spellbook = Interactables('spellbook')
@@ -656,7 +650,7 @@ study.right = hallway
 
     #GARDEN
 garden.back = hallway
-garden.interactables = {'plant': plant}
+garden.interactables = {'feyleaf': feyleaf}
 
     #CLOSET
 closet.back = landing
