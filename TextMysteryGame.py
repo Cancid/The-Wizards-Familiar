@@ -6,7 +6,6 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 
 class Engine(object):
-    interacting = False
     def __init__(self, player):
         self.player = player
         map = mapper.Map()
@@ -14,14 +13,10 @@ class Engine(object):
         map.generate_map_from_room_guide(player.location)
         self.map = map
 
-
+    started = False
     def play(self):
-        title = open('title.txt', 'r')
-        self.player.output((title.read() + '\n Press ENTER to Play').center(90))
-        print(title.read() + '\n Press ENTER to Play'.center(90))
-        #if enter == '':
-            #self.start()
-    
+        self.player.output('Press ENTER to Play')
+
 
     def input_request(self, command):
         try:
@@ -34,25 +29,25 @@ class Engine(object):
         print(self.player.interaction_state)
         if self.player.interaction_state == None:
             moved = self.process_input(command, object)
-            if not moved:
-                self.player.output("You can't go that way.")
             current_room = self.player.location
             self.map.display()
-            if self.player.no_desc == False and self.player.interaction_state == None:
+            if moved is False:
+               self.player.output("You can't go that way.")
+            elif self.player.no_desc == False and self.player.interaction_state == None:
                 current_room.describe(self.player)
-            self.player.visited.append(self.player.location.name)
+                self.player.visited.append(self.player.location.name)
         elif self.player.interaction_state == 'room':
             self.player.interact(None, command)
         elif self.player.interaction_state != None:
-            print(self.player.location.interactables.get(self.player.interaction_state))
-            interactable = self.player.location.interactables.get(self.player.interaction_state)
-            interactable.interact(self.player, command)
+            self.player.interact(command, self.player.interaction_state)
 
 
 
     def process_input(self, command, object):
-        #current_room = self.player.location
-        
+        if self.started == False:
+            self.started = True
+            return
+
         if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
                         'u', 'up', 'd', 'down'):
             return self.player.move(command, self.map)
@@ -62,6 +57,7 @@ class Engine(object):
             if object in self.player.location.interactables.keys() or object in self.player.inventory:
                 print("I did this.")
                 # TODO: make inputs like 'piano' work
+                self.player.interaction_state = 'room'
                 self.player.interact(command, object)
                 return True
             else:
@@ -77,13 +73,15 @@ class Engine(object):
             return True
         elif command in ('h', 'help'):
             self.player.output('This is a list of commands.')
+            self.player.no_desc = True
             return True
-        elif command in ('inv'):
+        elif command == 'inv':
             self.player.output(str((self.player.inventory)))
+            self.player.no_desc = True
             return True
-
         else:
-            self.player.output("Please enter a valid resposne.")
+            self.player.output("Please enter a valid response.")
+            self.player.no_desc = True
             return True
 
 
@@ -112,20 +110,17 @@ class PlayerLocation(object):
     interactables: Optional[dict] = None
 
     # inits the current room with mandatory and optional variables
-    def __init__(self, room, name: str, description: str = 'No description', no_desc: bool = False):
+    def __init__(self, room, name: str, description: str = 'No description'):
         self.room = room
         self.name = name
         self.description = description
-        self.no_desc = no_desc
 
     # "enters" the room
     def describe(self, player) -> Room:
-        if player.no_desc == True:
-            pass
-        elif self.name in player.visited:
+        if self.name in player.visited:
             player.output(f'You are in the {self.name}. This room was visited. What do you do?')
         else:
-            player.output(f"This is the {self.name}. {self.description} What do you do?")
+            player.output(f"This is the {self.name}. {self.description}. What do you do?")
 
     def locked(self, player):
         player.output('The door is locked, what is the code?')
@@ -150,7 +145,7 @@ class Player(object):
         self.location = location
         self.inventory = inventory
         self.puzzles = puzzles
-        self.visited = visited
+        self.visited = visited 
         self.no_desc = no_desc
 
     game_text = ''
@@ -161,7 +156,6 @@ class Player(object):
         if self.location == foyer and SECRET_ROOM_SOLUTION == True:
             self.location.left = secret_room
         self.no_desc = False
-        print(self.location.no_desc)
         if command in ('f', 'forward'):
             if self.location.forward:
                 self.last_moved.pop(0)
@@ -216,7 +210,7 @@ class Player(object):
         
         # TODO: if room has no interactables ERROR
         
-        if object in ('e', 'exit'):
+        if command in ('e', 'exit'):
             print("Player - Interact- Exit")
             self.interaction_state = None
             self.location.describe(self)
@@ -228,23 +222,23 @@ class Player(object):
         elif object in self.location.interactables:
             print("Player - Interact - Location Interactable")
             interactable = self.location.interactables.get(object)
+            print('>>>>>>>>>>>>>', interactable)
         elif object in self.inventory:
             interactable = usable_items.get(object)
         interactable.describe(self)
         if command not in interactable.interaction:
             print("Player - Interact - No Command")
-            self.interaction_state = str(interactable)
+            self.interaction_state = interactable.name
             print(self.interaction_state)
         else:
+            print("Payer - Interact - Has Command")
             new_item = interactable.interact(self, command)
             if new_item is not None:
                 self.add_item(new_item)
-                self.output('>>>INV:', self.inventory)
-            self.no_desc = True
 
     def add_item(self, new_item):
         self.inventory.append(new_item)
-        self.output(self.inventory)
+
 
 
 
@@ -288,13 +282,16 @@ class Interactables(object):
             except IndexError:
                 player.output('Get what?')
                 return
+        elif command in ('e', 'exit'):
+            player.interaction_state = None
+            player.location.describe(player)
+            return
         elif command not in self.interaction or not ('e', 'exit'):
             player.output("Please enter a valid response.")
             player.interaction_state = 'room'
             return
         elif command == self.action_1 or self.action_2:
-          new_item = self.interaction.get(command).use(player, self.name)
-        print('NEW_ITEM AFTER INT:', new_item)
+            new_item = self.interaction.get(command).use(player, self.name)
         self.no_desc = False
         player.interaction_state = None
         return new_item
@@ -366,30 +363,30 @@ class Landscape(object):
     def __init__(self, name: str):
         self.name = name
 
+    def describe(self, player):
+        player.output(self.description)
 
     def interact(self, player, choice: Optional[str] = None) -> None:
-        player.output(self.description)
         spin = randint(0, 2)
         land = self.landscape[spin]
         print(land)
-        object = choice
         new_item = None
-        while choice is None:
-            choice = input('>OBJECT ')
-            if choice == self.action_1:
-                player.location = player.location.teleport[spin]
-                player.last_moved = [None, None, None, None]
-                return new_item
-            elif choice == self.action_2:
-                object = str(self.action_2)
-                new_item = self.interaction.get(object).use(self.player)
-                return new_item
-            elif choice in ('e', 'exit'):
-                return None
-            else:
-                player.output('Please enter a valid response.')
-                choice = None
-        self.no_desc = False
+        if choice == self.action_1:
+            player.location = player.location.teleport[spin]
+            player.interaction_state = None
+            player.last_moved = [None, None, None, None]
+            player.location.describe(player)
+            return
+        elif choice == self.action_2:
+            object = str(self.action_2)
+            new_item = self.interaction.get(object).use(self.player)
+            return new_item
+        elif choice in ('e', 'exit'):
+            player.interaction_state = None
+            return
+        else:
+            player.output('Please enter a valid response.')
+            return
 
 
 class Code_Interactable(object):
@@ -403,10 +400,11 @@ class Code_Interactable(object):
 
     def __init__(self, name: str):
         self.name = name
-
-    def interact(self, player, choice: Optional[str] = None) -> None:
+    
+    def describe(self, player):
         player.output(self.description)
-        code = input("CODE> ")
+
+    def interact(self, player, code: Optional[str] = None) -> None:
         if code == self.solution:
             player.output(self.unlock)
             if self.item != None:
@@ -414,15 +412,16 @@ class Code_Interactable(object):
             return new_item
         else:
             player.output(self.locked)
+            player.interaction_state = None
             new_item = None
             return new_item
 
 
 
-foyer = PlayerLocation(Room.FOYER, 'foyer', 'This is a fancy foyer. There is a fireplace and a piano.')
+foyer = PlayerLocation(Room.FOYER, 'foyer', 'A large open room. A grand piano with worn keys is here. A beautiful fireplace is on the left wall.')
 secret_room = PlayerLocation(Room.SECRET_ROOM, 'secret_room')
 hallway = PlayerLocation(Room.HALLWAY, 'hallway')
-kitchen = PlayerLocation(Room.KITCHEN, 'kitchen', "A small kitchen compared to the rest of the house. It looks like it hasn't been used in years.")
+kitchen = PlayerLocation(Room.KITCHEN, 'kitchen', """"Small compared to the rest of the house. It looks like it hasn't been used in years. There is an oven on the far wall, with cabinets above it. There is a pantry crammed in the corner.""")
 master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom')
 landing = PlayerLocation(Room.LANDING, 'landing')
 study = PlayerLocation(Room.STUDY, 'study')
@@ -514,17 +513,21 @@ piano.interaction = {'play': play, 'music': music}
 portrait = Code_Interactable('portrait')
 portrait.description = '''A portrait of an old wizard. As you approach the wizard becomes animated!
                         "I am Mordecai! What is my favorite spell?"'''.replace('   ', '')
-portrait.solution = 'sparkle'
 portrait.unlock = "Mordecai's hand extends from the painting and hands you a strange rod. You take the Rod of Infinite Possibilites."
-portrait.lock = "Sorry, that just isn't it."
+sparkle = portrait.unlock
+portrait.solution = 'sparkle'
+portrait.interaction = {'sparkle': sparkle}
+portrait.locked = "Sorry, that just isn't it."
 portrait.item = 'Rod of Infinite Possibilities'
 
+
     # LANDSCAPE
-landscape = Landscape('landscape painting')
-landscape.landscape = ['foyer', 'kitchen', 'master_bedroom']
-landscape.interaction = {'run': run}
-landscape.action_1 = 'stare'
-landscape.action_2 = 'run'
+painting = Landscape('painting')
+painting.description = 'A painting of a beautiful landscape.'
+painting.landscape = ['foyer', 'kitchen', 'master_bedroom']
+painting.interaction = {'run': run}
+painting.action_1 = 'stare'
+painting.action_2 = 'run'
 
     # BOX
 box = Interactables('box')
@@ -627,7 +630,7 @@ hallway.left = kitchen
 hallway.right = master_bedroom
 hallway.up = landing
 hallway.teleport = [foyer, kitchen, master_bedroom]
-hallway.interactables = {'portrait': portrait, 'landscape': landscape} #'bust': bust,
+hallway.interactables = {'portrait': portrait, 'painting': painting} #'bust': bust,
                         #'landscape painting': landscape_painting
 
     # MASTER BEDROOM
