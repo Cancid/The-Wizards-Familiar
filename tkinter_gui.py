@@ -44,7 +44,7 @@ def init_gui(engine):
     t_game.configure(yscrollcommand=scroll_bar.set)
     scroll_bar.config(command=t_game.yview)
 
-    lexicon = ["piano", "fireplace", "portrait", "painting", "cabinet", "pantry", "icebox", "wardrobe", "feyleaf", "box", "spellbook", "circle"]
+    lexicon = ["piano", "fireplace", "portrait", "cabinet", "pantry", "icebox", "wardrobe", "'feyleaf'", "box", "spellbook", "circle", "mural", "flour", "oil", "bake", "sweetener", "eggs", "robes", "gloves", "circle", "leaf", "Sweetener", "feyleaf"]
 
     def output():
         game_output = engine.player.game_text

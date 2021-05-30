@@ -15,4 +15,3 @@ root = init_gui(a_game)
 #root.bind("<Return>", func)
 #root.bind("<Return>", lambda event, arg=a_game: player_action(event, arg))
 root.mainloop()
-git 
