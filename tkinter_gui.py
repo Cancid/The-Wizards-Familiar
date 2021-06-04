@@ -1,6 +1,9 @@
+#! /usr/bin/env python3.9
 from tkinter import *
 from tkinter import ttk
 import tkinter.font as tkFont
+import os
+import sys
 
 
 
@@ -15,8 +18,12 @@ def init_gui(engine):
     root.rowconfigure(0,weight=1)
     root.columnconfigure(0,weight=1)
     
-    
-    TITLE = open('title.txt', 'r').read()
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    TITLE = open(dir_path + '/title.txt', 'r').read()
+
+    font = tkFont.Font(family='Yu Gothic', size=14)
+    title_font = tkFont.Font(family="Yu Gothic", size=20)
 
     mainframe = Frame(root, width=screen_width, height=screen_height)
     mainframe.grid(sticky='nsew')
@@ -29,13 +36,12 @@ def init_gui(engine):
     lb_title.grid(row=0, column=1, pady=10, sticky='nsew')
 
     ent_player_act = Entry(mainframe, width=50)
-    ent_player_act.grid(row=2, column=1, pady=10, ipady=10, padx=20, sticky='ns')
+    ent_player_act.grid(row=2, column=1, pady=10, ipady=10, sticky='ns')
+    ent_player_act.config(background="gray25", foreground="ghostwhite", relief='solid', borderwidth=3, font=font, justify=CENTER, width=25)
 
     scroll_bar = Scrollbar(mainframe, orient=VERTICAL, width=15)
     scroll_bar.grid(row=1, column=2, padx= (0, 20), sticky='nsew')
-    scroll_bar.config(bg="gray25")
-
-    font = tkFont.Font(family='Yu Gothic', size=14)
+    scroll_bar.config(bg="gray25", activebackground="gray40")
 
     t_game = Text(mainframe, pady=10, padx=10, relief='solid', borderwidth=5)
     t_game.grid(row=1, column=1, padx=(20,0), ipadx=10, sticky='nsew')
@@ -44,8 +50,13 @@ def init_gui(engine):
     t_game.configure(yscrollcommand=scroll_bar.set)
     scroll_bar.config(command=t_game.yview)
 
-    lexicon = ["piano", "fireplace", "portrait", "cabinet", "pantry", "icebox", "wardrobe", "'feyleaf'", "box", "spellbook", "circle", "mural", "flour", "oil", "bake", "sweetener", "eggs", "robes", "gloves", "circle", "leaf", "Sweetener", "feyleaf"]
-
+    lexicon = ["piano", "fireplace", "portrait", "cabinet", "pantry", "icebox", "wardrobe", "Feyleaf",
+                "spellbook", "mural", "flour", "oil", "bake", "sweetener", "eggs", "robes", 
+                "gloves", "circle", "leaf", "Sweetener", "feyleaf", "Sweetener", "Oil", "Flour", 
+                "orb", "note", "lock", "letter", "rest", "read", "sheets", "ritual room", "dust", "Sheets",
+                "Dust", "ritual", "highlighted", "sparkle"]
+    
+    
     def output():
         game_output = engine.player.game_text
         t_game.configure(state="normal")
@@ -58,6 +69,7 @@ def init_gui(engine):
                     lastidx = '%s+%dc' % (idx, len(w))
                     t_game.tag_add("italic", idx, lastidx)
                     idx = lastidx
+        engine.player.game_text = ''
         t_game.see(END)
         t_game.configure(state="disabled")
     
@@ -78,10 +90,10 @@ def init_gui(engine):
 
     def player_action(event, engine):
         action = ent_player_act.get()
-        if engine.started ==True:
+        if engine.started == True:
             action_out(action)
         ent_player_act.delete(0, END)
-        engine.input_request(action)
+        engine.input_request(action.lower())
         output()
 
     
@@ -93,10 +105,11 @@ def init_gui(engine):
     bold_font.config(weight="bold")
     t_game.tag_configure("bold", font=bold_font, foreground="magenta3")
 
+    ent_player_act.focus_set()
 
     root.bind("<Return>", lambda event, arg=engine: player_action(event, arg))
 
     output()
-    #root.bind("<Return>", player_action)
+
     print(root)
     return root
