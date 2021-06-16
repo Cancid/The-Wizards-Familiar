@@ -8,7 +8,13 @@ from collections import Counter
 import os
 import sys
 
+# TODO: Combine restart play and trim main
+
+ORB_SOLUTION = ['r', 'd', 'b', 'l']
+DIRECTION_INDEX = ['f','b','l','r','u','d','forward','backward','left','right','up','down']
+
 dir_path = os.path.dirname(os.path.realpath(__file__))
+
 
 class Engine(object):
     def __init__(self, player):
@@ -17,6 +23,7 @@ class Engine(object):
         print(map)
         map.generate_map_from_room_guide(player.location)
         self.map = map
+        self.restart()
 
     started = False
 
@@ -24,23 +31,26 @@ class Engine(object):
         press_play = 'Press ENTER to Play'
         self.player.output(f"{press_play:^150}")
 
+    def restart(self):
+        a_map = RoomGuide(Room.FOYER)
+        a_player = Player(a_map.next_room(a_map.room), ['license', 'letter'], [], [], False)
+        self.player = a_player
+        map = mapper.Map()
+        print(map)
+        map.generate_map_from_room_guide(self.player.location)
+        self.map = map
+        self.play()
+
 
     def input_request(self, command):
-        print(self.player.interaction_state)
         if self.player.interaction_state == None:
-            moved = self.process_input(command)
-            current_room = self.player.location
-            self.map.display()
-            if moved is False:
-               self.player.output("You can't go that way.")
-            elif self.player.no_desc == False and self.player.interaction_state == None:
-                current_room.describe(self.player)
+            self.process_input(command)
         elif self.player.interaction_state is not None:
             if self.player.interaction_state in self.player.inventory:
                 object = usable_items.get(self.player.interaction_state)
             else:
                 object = self.player.location.interactables.get(self.player.interaction_state)
-            object.interact(self.player, command)
+            object.interact(self.player, command, self.map)
 
 
     def process_input(self, command):
@@ -49,22 +59,23 @@ class Engine(object):
             return
         if self.player.win == True:
             if command in ("yes", "y"):
-                os.execv(dir_path + "/main.py", sys.argv)
+                self.restart()
             elif command in ("no", "n"):
                 exit(0)
 
 
         if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
                         'u', 'up', 'd', 'down'):
-            return self.player.move(command, self.map)
+            self.player.move(command, self.map)
 
-        if command in self.player.location.interactables.keys() or command in self.player.inventory:
+        elif command in self.player.location.interactables.keys() or command in self.player.inventory:
             self.player.interact(command)
             return True
 
             
         elif command in ('desc', 'description'):
             self.player.visited.remove(self.player.location.name)
+            print(self.player.location.name)
             print(self.player.visited)
             self.player.location.describe(self.player)
             self.player.visited.append(self.player.location.name)
@@ -124,7 +135,8 @@ class PlayerLocation(object):
             for i in self.interactables.values():
                 if i.item is not None and i.item == True:
                    description += i.purpose
-            player.visited.append(self.name)
+            if self.name not in player.visited:
+                player.visited.append(self.name)
         player.output(description + " What do you do?")
 
 
@@ -148,10 +160,14 @@ class Player(object):
 
 
     def move(self, command, map):
-        if self.location == foyer and play.was_unlocked == True:
+        # foyer secret room unlocked
+        if self.location == foyer and self.location.left is not None and play.was_unlocked == True:
             self.location.left = secret_room
-        if self.location == hallway and ritual_room_lock.active == False:
+            map.generate_map_from_room_guide(self.location)
+        # ritual room unlocked
+        if self.location == hallway and self.location.right is not None and ritual_room_lock.active == False:
             self.location.right = ritual_room
+            map.generate_map_from_room_guide(self.location)
         self.no_desc = False
         if command in ('f', 'forward'):
             if self.location.forward:
@@ -190,9 +206,14 @@ class Player(object):
                 map.update_player('down')
             new_location = self.location.down
         if not new_location:
-            return False
+             self.output("You can't go that way.")
+             return
         else:
             self.location = new_location
+            map.generate_map_from_room_guide(self.location)
+            map.display()
+            if self.no_desc == False:
+                self.location.describe(self)
         if "orb" in self.inventory and open_item.active == True:
             self.orb_movement(self.last_moved, ORB_SOLUTION)
             return True
@@ -276,12 +297,15 @@ class Interactables(object):
             player.interaction_state = None
         player.output(description)
        
-
-    def interact(self, player, command: Optional[str] = None) -> None:
+  
+    def interact(self, player, command, map) -> None:
         if command in ('e', 'exit'):
             player.interaction_state = None
             player.location.describe(player)
             return
+        elif command in DIRECTION_INDEX:
+            player.interaction_state = None
+            player.move(command, map)
         elif command not in self.interaction or not ('e', 'exit'):
             player.output("Please enter a valid response.")
             return
@@ -372,7 +396,10 @@ class Landscape(object):
         player.output(land)
         print(land)
 
-    def interact(self, player, choice: Optional[str] = None) -> None:
+    def interact(self, player, choice, map):
+        if choice in DIRECTION_INDEX:
+            player.interaction_state = None
+            player.move(choice, map)
         if choice == 'stare':
             player.location = player.location.teleport[self.spin]
             player.interaction_state = None
@@ -410,8 +437,12 @@ class Code_Interactable(object):
         else:
             player.output(self.description)
 
-    def interact(self, player, code: Optional[str] = None) -> None:
-        if code == self.solution:
+    def interact(self, player, code, map) -> None:
+        if code in DIRECTION_INDEX:
+            player.interaction_state = None
+            player.move(code, map)
+            return
+        elif code == self.solution:
             player.output(self.unlock)
             self.active = False
             if self.has_item != None:
@@ -672,6 +703,7 @@ secret_room.interactables = {'dust': fairy_dust}
 hallway.forward = garden
 hallway.back = foyer
 hallway.left = kitchen
+hallway.right = ritual_room
 hallway.up = landing
 hallway.teleport = [foyer, kitchen, master_bedroom, garden, closet, ritual_room]
 hallway.interactables = {'portrait': portrait, 'mural': mural, 'lock': ritual_room_lock}
@@ -713,11 +745,7 @@ ritual_room.interactables = {'circle': ritual_circle}
 #------------------------------------------------------------
 # PUZZLES
 
-ORB_SOLUTION = ['r', 'd', 'b', 'l']
-SECRET_ROOM_SOLUTION = play.was_unlocked
-LOCK_SOLUTION = ritual_room_lock.solution
-LOCK_ACTIVE = ritual_room_lock.active
-WIN = ritual.active
+
 
 
 

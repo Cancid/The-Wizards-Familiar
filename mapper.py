@@ -128,6 +128,8 @@ class Map:
                 map_dict[str(cur_pos.left())] = "h_conn"
                 queue.append((cur_pos.left().left(), cur_room.left))
 
+        print(map_dict)
+
         # =====================================================================
         # Turn map dictionary into a 2d array that represents the map
         # TODO: I hate using strings here, look into python "enums"
@@ -178,9 +180,10 @@ class Map:
             position = Position.from_string(key)
             non_negative_x = position.x - min_x
             # Subtract from "max_y" otherwise the array will appear "upside down"
-            non_negative_y = max_y - (position.y - min_y)
+            non_negative_y = max_y - position.y
             map_array[non_negative_y][non_negative_x] = value
             if position.x == 0 and position.y == 0:
                 self.player_location = Position(non_negative_x, non_negative_y)
 
         self.map_array = map_array
+        print(self.map_array)
