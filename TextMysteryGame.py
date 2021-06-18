@@ -98,8 +98,6 @@ class Engine(object):
             object.interact(self.player, command, self.map)
             
 
-       
-
 
 class Room(Enum):
     FOYER = 0
@@ -123,7 +121,7 @@ class PlayerLocation(object):
     down = None
     teleport = None
     lock = False
-    interactables: Optional[dict] = None
+    interactables = None
 
     def __init__(self, room, name: str, description: str = 'No description'):
         self.room = room
