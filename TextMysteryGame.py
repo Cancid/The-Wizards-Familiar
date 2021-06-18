@@ -6,9 +6,7 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 from collections import Counter
 import os
-import sys
 
-# TODO: Combine restart play and trim main
 
 ORB_SOLUTION = ['r', 'd', 'b', 'l']
 DIRECTION_INDEX = ['f','b','l','r','u','d','forward','backward','left','right','up','down']
@@ -17,83 +15,90 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
 class Engine(object):
-    def __init__(self, player):
-        self.player = player
-        map = mapper.Map()
-        print(map)
-        map.generate_map_from_room_guide(player.location)
-        self.map = map
-        self.restart()
+
+    def __init__(self):
+        self.player = None
+        self.map = None
 
     started = False
 
     def play(self):
-        press_play = 'Press ENTER to Play'
-        self.player.output(f"{press_play:^150}")
-
-    def restart(self):
         a_map = RoomGuide(Room.FOYER)
         a_player = Player(a_map.next_room(a_map.room), ['license', 'letter'], [], [], False)
         self.player = a_player
+        self.player.last_interact("letter")
         map = mapper.Map()
         print(map)
         map.generate_map_from_room_guide(self.player.location)
         self.map = map
-        self.play()
+        press_play = "Press ENTER to Play \n\n"
+        self.player.output(open(dir_path + "/opening_scene.txt", "r").read())
+        self.player.output(f"{press_play:^150}")
+        
 
+    def process_input(self, command):
+        print(self.player.last_interacted)
+        if self.started == False:
+            self.player.output("Welcome to the Wizard's Familiar!\n")
+            self.player.output(open(dir_path + '/help.txt', "r").read() + "\nTry reading the letter in your *inventory!")
+            self.started = True
+            return
 
-    def input_request(self, command):
-        if self.player.interaction_state == None:
-            self.process_input(command)
+        if self.player.win == True:
+            if command in ("yes", "y"):
+                self.play()
+            elif command in ("no", "n"):
+                exit(0)
+
+        if command in DIRECTION_INDEX:
+            self.player.interaction_state = None
+            self.player.move(command, self.map)
+
+        elif command in ('desc', 'description'):
+            self.player.visited.remove(self.player.location.name)
+            print(self.player.location.name)
+            print(self.player.visited)
+            self.player.location.describe(self.player)
+            if self.player.location.name not in self.player.visited:
+                self.player.visited.append(self.player.location.name)
+            self.player.no_desc = True
+            return True
+        elif command in ('h', 'help'):
+            self.player.no_desc = False
+            self.player.output(open(dir_path + '/help.txt', "r").read())
+            self.player.location.describe(self.player)
+            return True
+        elif command in ("i", "inv", "inventory"):
+            self.player.output(str(self.player.inventory))
+            self.player.no_desc = True
+            return True
+
+        elif (
+            (self.player.last_interacted in self.player.location.interactables.values()
+            or self.player.last_interacted in self.player.inventory)
+            and command in self.player.last_interacted.interaction.keys()
+        ):
+            self.player.last_interacted.interact(self.player, command, self.map)
+
+        elif self.player.interaction_state == None:
+            if command in self.player.location.interactables.keys() or command in self.player.inventory:
+                self.player.interact(command)
+            else:
+                print("Process Input - INVALID")
+                self.player.output("Please enter a valid response.")
+                self.player.no_desc = True
+                return True
+
+        
         elif self.player.interaction_state is not None:
             if self.player.interaction_state in self.player.inventory:
                 object = usable_items.get(self.player.interaction_state)
             else:
                 object = self.player.location.interactables.get(self.player.interaction_state)
             object.interact(self.player, command, self.map)
-
-
-    def process_input(self, command):
-        if self.started == False:
-            self.started = True
-            return
-        if self.player.win == True:
-            if command in ("yes", "y"):
-                self.restart()
-            elif command in ("no", "n"):
-                exit(0)
-
-
-        if command in ('f', 'forward', 'l', 'left', 'r', 'right', 'b', 'back',
-                        'u', 'up', 'd', 'down'):
-            self.player.move(command, self.map)
-
-        elif command in self.player.location.interactables.keys() or command in self.player.inventory:
-            self.player.interact(command)
-            return True
-
             
-        elif command in ('desc', 'description'):
-            self.player.visited.remove(self.player.location.name)
-            print(self.player.location.name)
-            print(self.player.visited)
-            self.player.location.describe(self.player)
-            self.player.visited.append(self.player.location.name)
-            self.player.no_desc = True
-            return True
-        elif command in ('h', 'help'):
-            self.player.output(open(dir_path + '/help.txt', "r").read())
-            self.player.no_desc = True
-            return True
-        elif command in ("i", "inv", "inventory"):
-            self.player.output(str((self.player.inventory)))
-            self.player.no_desc = True
-            return True
-        else:
-            print("Process Input - INVALID")
-            self.player.output("Please enter a valid response.")
-            self.player.no_desc = True
-            return True
+
+       
 
 
 class Room(Enum):
@@ -127,7 +132,7 @@ class PlayerLocation(object):
 
 
     def describe(self, player) -> Room:
-        description = f"This is the {self.name}. "
+        description = f"You enter the {self.name}. "
         if self.name in player.visited:
             description += "You have been here before."
         else:
@@ -142,7 +147,7 @@ class PlayerLocation(object):
 
 class Player(object):
 
-    last_moved = [None, None, None, None]
+    last_moved = [None]
     interaction_state = None
 
     def __init__(self, location, inventory, puzzles, visited, no_desc):
@@ -151,7 +156,14 @@ class Player(object):
         self.puzzles = puzzles
         self.visited = visited 
         self.no_desc = no_desc
-        
+    
+    last_interacted = None
+    def last_interact(self, item_name):
+        if item_name in self.inventory:
+            self.last_interacted = usable_items.get(item_name)
+        else:
+            self.last_interacted = self.location.interactables.get(item_name)
+
     win = False
 
     game_text = ''
@@ -161,48 +173,50 @@ class Player(object):
 
     def move(self, command, map):
         # foyer secret room unlocked
-        if self.location == foyer and self.location.left is not None and play.was_unlocked == True:
+        if self.location == foyer and self.location.left is None and play.was_unlocked == True:
             self.location.left = secret_room
             map.generate_map_from_room_guide(self.location)
         # ritual room unlocked
-        if self.location == hallway and self.location.right is not None and ritual_room_lock.active == False:
+        if self.location == hallway and self.location.right is None and ritual_room_lock.active == False:
             self.location.right = ritual_room
             map.generate_map_from_room_guide(self.location)
         self.no_desc = False
         if command in ('f', 'forward'):
             if self.location.forward:
-                self.last_moved.pop(0)
-                self.last_moved.append('f')
+                #self.last_moved.pop(0)
+                #self.last_moved.append('f')
                 map.update_player("forward")
             new_location = self.location.forward
         elif command in ('l', 'left'):
             if self.location.left:
-                self.last_moved.pop(0)
-                self.last_moved.append( 'l')
+                #self.last_moved.pop(0)
+                #self.last_moved.append( 'l')
                 map.update_player("left")
             new_location = self.location.left
         elif command in ('r', 'right'):
             if self.location.right:
-                self.last_moved.pop(0)
-                self.last_moved.append( 'r')
+                #self.last_moved.pop(0)
+                #self.last_moved.append( 'r')
                 map.update_player("right")
             new_location = self.location.right
         elif command in ('b', 'back'):
             if self.location.back:
-                self.last_moved.pop(0)
-                self.last_moved.append('b')
+                #self.last_moved.pop(0)
+                #self.last_moved.append('b')
                 map.update_player("back")
             new_location = self.location.back
         elif command in ('u', 'up'):
             if self.location.up:
-                self.last_moved.pop(0)
-                self.last_moved.append('u')
+                #self.last_moved.pop(0)
+                #self.last_moved.append('u')
+                map.generate_map_from_room_guide(self.location.up)
                 map.update_player('up')
             new_location = self.location.up
         elif command in ('d', 'down'):
             if self.location.down:
-                self.last_moved.pop(0)
-                self.last_moved.append('d')
+                #self.last_moved.pop(0)
+                #self.last_moved.append('d')
+                map.generate_map_from_room_guide(self.location.down)
                 map.update_player('down')
             new_location = self.location.down
         if not new_location:
@@ -210,12 +224,12 @@ class Player(object):
              return
         else:
             self.location = new_location
-            map.generate_map_from_room_guide(self.location)
-            map.display()
-            if self.no_desc == False:
-                self.location.describe(self)
-        if "orb" in self.inventory and open_item.active == True:
-            self.orb_movement(self.last_moved, ORB_SOLUTION)
+            self.location.describe(self)
+        if "orb" in self.inventory and "puzzle_solve" not in self.puzzles:
+            if len(self.last_moved) == 4:
+                self.last_moved.pop(0)
+            self.last_moved.append(self.location.name)
+            self.orb_movement()
             return True
 
     def interact(self, command): 
@@ -240,27 +254,31 @@ class Player(object):
     def add_item(self, new_item):
         self.inventory.append(new_item)
 
-    slicer = 1
-    list_size = 3
-    def orb_movement(self, puzzle, solution):
-        if puzzle == solution:
-                self.puzzles.append('puzzle_solve')
-                self.output("The final layer of the orb expands to reveal a seam with a latch in the center.")
-        else:
-            move_text = ["The orb seems to deconstruct itself like a slide puzzle to reveal a second layer.",
-                            "The orb's second layer slides away.", 
-                            "The orb twists, lowering another layer of its exterior."]
+    #slicer = 1
+    #list_size = 3
+    
+    stage = 0
+    def orb_movement(self):
+        move_text = ["The orb seems to deconstruct itself like a slide puzzle to reveal a second layer.",
+                        "The orb's second layer slides away.", 
+                        "The orb twists, lowering another layer of its exterior.",
+                        "The orb reconfigures itself, revealing a final layer.",
+                        "The final layer of the orb shrinks to reveal a seam with a latch in the center."]
             
-            a = puzzle[self.list_size:]
-            b = solution[:self.slicer]
-            if a == b: 
-                self.output(move_text[self.slicer-1])
-                self.slicer += 1
-                self.list_size -= 1
-            elif self.slicer == 2 or self.slicer == 3:
-                self.slicer = 1
-                self.list_size = 3
-                self.output("The orb whirrs. It seems to have reset itself.")
+        visit_counter = Counter(self.last_moved)
+        print(visit_counter)
+        for count in visit_counter.values():
+            if count >= 2:
+                self.last_moved = []
+                self.stage = 0
+                self.output("The orb whirrs. Growing back to its original size.")
+                return
+        self.output(move_text[self.stage])
+        if self.stage == 4:
+            self.puzzles.append('puzzle_solve')
+        self.stage += 1
+        
+            
 
                 
                 
@@ -282,16 +300,19 @@ class Interactables(object):
         return self.name
 
     def describe(self, player):
+        player.last_interact(self.name)
         print(">>>>", self)
         print(player)
         player.no_desc = True
         description = f"{self.description}"
         if self.interaction is not None:
             for act in self.interaction.values():
+                print(self.interaction.values())
                 if act.description is not None and act.active == True:
                     description += act.description
         if self.item == True:
-            player.inventory.append(self.name)
+            player.inventory.append(f'{self.name}')
+            player.last_interact(self.name)
             self.item = False
             description += f' You pick up the {self.name}.'
             player.interaction_state = None
@@ -375,7 +396,8 @@ class Interaction(object):
     def you_win(self, player, text):
         player.output(text)
         congrats = "Congratulations!\nPlay Again?\nY/N"
-        player.output(f"{congrats:^150}")
+        player.no_desc = True
+        player.output(f"{congrats}")
         player.win = True
 
 class Landscape(object):
@@ -393,7 +415,7 @@ class Landscape(object):
     def describe(self, player):
         self.spin = randint(0, 4)
         land = self.landscape[self.spin]
-        player.output(land)
+        player.output(land + self.description)
         print(land)
 
     def interact(self, player, choice, map):
@@ -402,12 +424,14 @@ class Landscape(object):
             player.move(choice, map)
         if choice == 'stare':
             player.location = player.location.teleport[self.spin]
+            map.generate_map_from_room_guid()
             player.interaction_state = None
             player.last_moved = [None, None, None, None]
             player.location.describe(player)
             return
         elif choice in ('e', 'exit'):
             player.interaction_state = None
+            player.location.describe(player)
             return
         else:
             player.output('Please enter a valid response.')
@@ -442,6 +466,10 @@ class Code_Interactable(object):
             player.interaction_state = None
             player.move(code, map)
             return
+        if code in ("e", "exit"):
+            player.interaction_state = None
+            player.location.describe(player)
+            return
         elif code == self.solution:
             player.output(self.unlock)
             self.active = False
@@ -456,16 +484,16 @@ class Code_Interactable(object):
 
 
 
-foyer = PlayerLocation(Room.FOYER, 'foyer', 'A large open room. A grand piano with worn keys is here. A beautiful fireplace is still burning on the left wall.')
+foyer = PlayerLocation(Room.FOYER, 'foyer', 'A large open room. A grand *piano with worn keys is here. A beautiful *fireplace is still burning on the left wall.')
 secret_room = PlayerLocation(Room.SECRET_ROOM, 'secret room', "Behind the fireplace is a small alcove lined with shelves. All manner of gems, artifacts, trophies, and more fill the shelves.")
-hallway = PlayerLocation(Room.HALLWAY, 'hallway', "Candelabras line this long hallway. A portrait of your grandfather is on the left wall, a large mural that's image seems to shift slowly is painted across the right wall. An alcove holds a spiral staircase leading to the upper portions of the mansion.")
-kitchen = PlayerLocation(Room.KITCHEN, 'kitchen', "Small compared to the rest of the house. It looks like it hasn't been used in years. There is an oven on the far wall, with a cabinet above it. There is a pantry crammed in the corner next an icebox.")
+hallway = PlayerLocation(Room.HALLWAY, 'hallway', "Candelabras line this long hallway. A *portrait of your grandfather is on the left wall, a large *mural that's image seems to shift slowly is painted across the right wall. An alcove holds a spiral staircase leading to the upper portions of the mansion.")
+kitchen = PlayerLocation(Room.KITCHEN, 'kitchen', "Small compared to the rest of the house. It looks like it hasn't been used in years. There is an *oven on the far wall, with a *cabinet above it. There is a *pantry crammed in the corner next an *icebox.")
 master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom', "A large four post bed sits in the center of the room. A nightstand made of gnarled oak is one side of it. Globules of light flutter through the air, providing dim light to the room.")
 landing = PlayerLocation(Room.LANDING, 'landing', "Seemingly hundreds of small frames are hung all over the walls of the wooden landing. A cobalt blue door is on your left. A door made of redwood is on your right. A small closet seems to be in front of you.")
 study = PlayerLocation(Room.STUDY, 'study', "This room seems to be hald library and hald labratory. Books are scattered across a desk and there is a labratory table covered in beakers and a potions.")
-garden = PlayerLocation(Room.GARDEN, 'garden', "Only the smallest indication of a stone wall peaks out of the ivy that covers every surface of this small garden. You can see the starry night sky overhead. Among shelves and shelves of plants, one marked 'Feyleaf' catches your attention.")
-closet = PlayerLocation(Room.CLOSET, 'closet', 'A small walk-in closet full of your standard junk. A large dark wood wardrobe stands on the far end.')
-ritual_room = PlayerLocation(Room.RITUAL_ROOM, 'ritual room', "This entire room appears to be made of stone. Strange runes mark the walls. A glowing blue circle seems to be engraved into the floor taking up most of the room.")
+garden = PlayerLocation(Room.GARDEN, 'garden', "Only the smallest indication of a stone wall peaks out of the ivy that covers every surface of this small garden. You can see the starry night sky overhead. Among shelves and shelves of plants, one marked '*faeleaf' catches your attention.")
+closet = PlayerLocation(Room.CLOSET, 'closet', 'A small walk-in closet full of your standard junk. A large dark wood *wardrobe stands on the far end.')
+ritual_room = PlayerLocation(Room.RITUAL_ROOM, 'ritual room', "This entire room appears to be made of stone. Strange runes mark the walls. A glowing blue *circle seems to be engraved into the floor taking up most of the room.")
 
 
 
@@ -483,44 +511,45 @@ play.key = ['music sheets']
 play.unlock = "You perform 'Mordedcai's Myserious Melody'. As you press the final key, you hear a rumbling from across the room! The fireplace has shifted to reveal a small passage behind."
 
     # MUSIC
-music = Interaction('music sheets', "Of all the sheets of music one labeled 'Mordecai's Mysterious Melody' catches your eye. It looks very complex to play.", ' Sheets of music are still placed on it.')
+music = Interaction('music sheets', "Of all the sheets of music one labeled 'Mordecai's Mysterious Melody' catches your eye. It looks very complex to play.", ' *Sheets of music are still placed on it.')
 
     #NEWT_OIL
-newt_oil = Interaction('newt oil', ' You hear something swimming around inside.', ' On the top shelf is a bottle labaled "Newt Oil".',)
+newt_oil = Interaction('newt oil', 'You hear something swimming around inside.', ' On the top shelf is a bottle labaled "Newt *Oil".',)
     
     #SELF_PRAISING FLOWER
-fantastic_flour = Interaction('fantastic flour', " It says 'fantastic', but it looks pretty regular to you.", " A bag is on the bottom shelf. It says \"Fantastic Flour\".")
+fantastic_flour = Interaction('fantastic flour', " It says 'fantastic', but it looks pretty regular to you.", " A bag is on the bottom shelf. It says \"Fantastic *Flour\".")
     
     #TRUE SWEETENER
-true_sweetener = Interaction('true sweetener', ' The box instructs: "ONLY USE ONE"".', ' You notice a box labeled "True Sweetener".', )
+true_sweetener = Interaction('true sweetener', ' The box instructs: "ONLY USE ONE"".', ' You notice a box labeled "True *Sweetener".', )
     
     # HIPPOGRYPH EGGS
-hippogryph_eggs = Interaction('hippogryph eggs', ' They are rainbow in color. Grade A.', ' A carton of hippogryph eggs is the only thing left here.')
+hippogryph_eggs = Interaction('hippogryph eggs', ' They are rainbow in color. Grade A.', ' A carton of hippogryph *eggs is the only thing left here.')
     
     # BAKE
-bake = Interaction('tasty treat', "You don't have enough ingrediants to bake with.")
+bake = Interaction('tasty treat', "You don't have enough ingrediants to *bake with.")
 bake.key = ('fantastic flour', 'hippogryph eggs', 'newt oil', 'true sweetener')
 bake.unlock = 'You bake a tasty treat.'
 
     # LEAF
-leaf = Interaction('feyleaf', 'The leaf shimmers out of existence when you go to grab it.')
+leaf = Interaction('faeleaf', 'The leaf shimmers out of existence when you go to grab it.')
 leaf.key = ['Gloves of Lightest Touch']
-leaf.unlock= 'Your grip is soft as a cloud. You take the leaf.'
+leaf.unlock= 'With the Gloves of Lightest Touch your grip is soft as a cloud. You take the leaf.'
 
     # READ_SPELLS
 read_spells = Interaction('read', open(dir_path + '/spell.txt', 'r').read())
 
     # GLOVES
-gloves = Interaction('Gloves of Lightest Touch',  'They seem almost weightless. Plush interior.', ' A pair of sky blue gloves with patterns of clouds that seem to swirl on their own are hung on a hook.',)
+gloves = Interaction('Gloves of Lightest Touch',  'They seem almost weightless. Plush interior.', ' A pair of sky blue *gloves with patterns of clouds that seem to swirl on their own are hung on a hook.',)
 
     # WIZARD_ROBES
-robes = Interaction('wizard robes', 'Purple, with the stars and everything. Not very original.', ' A set of robes hangs within.')
+robes = Interaction('wizard robes', 'Purple, with the stars and everything. Not very original.', ' A set of *robes hangs within.')
 
    # RITUAL
 ritual = Interaction('ritual', "You don't have the proper materials to perform a ritual.")
-ritual.key = ('Tincture of a Thousand Possibilites', 'feyleaf', 'tasty treat', 'Rod of Planeshift', 'wizard robes', 'fairy dust')
-ritual.unlock = '''Calidopie joins you in the circle. As the Ritual commences, all the runes begin to alight. You feel the veil between the planes of existence begin to grow weak. The Caliodpie seems to nod in gratitude as his form becomes to slowly dissipate. You did it! You sent the familiar home.'''
-    # READ LETTER 
+ritual.key = ('Tincture of a Thousand Possibilites', 'faeleaf', 'tasty treat', 'Rod of Planeshift', 'wizard robes', 'faedust')
+ritual.unlock = '''Callidopie joins you in the circle. As the Ritual commences, all the runes begin to alight. You feel the veil between the planes of existence begin to grow weak. The Caliodpie seems to nod in gratitude as his form becomes to slowly dissipate. You did it! You sent the familiar home.'''
+
+   # READ LETTER 
 read_letter = Interaction("read", open(dir_path + "/letter.txt", "r").read())
 
     # READ NOTE
@@ -530,7 +559,11 @@ read_note = Interaction("read", "A single phrase is scrawled on the paper: grand
 read_license = Interaction("read", open(dir_path + "/license.txt", "r").read())
 
     # REST
-rest = Interaction("rest", "Resting by the fire, you recall your fondest memory of your grandfather. You would always ask him make you glitter, and he would cast sparkle on you.")
+rest = Interaction("rest", "Resting by the fire, you recall your fondest memory of your grandfather. You would always ask him to make you glitter, and he would cast his favorite spell Sparkle on you.")
+
+    # READ_RECIPE
+read_recipe = Interaction("read", open(dir_path + "/recipe.txt", "r").read())
+
 
 
 # ----------------------------------------------------------------------
@@ -538,13 +571,13 @@ rest = Interaction("rest", "Resting by the fire, you recall your fondest memory 
 
     # FIREPLACE
 fireplace = Interactables('fireplace')
-fireplace.description = 'The fire burns despite their being no logs. You feel warm. There is a lounge chair you could rest in beside it.'
+fireplace.description = 'The fire burns despite their being no logs. You feel warm. There is a lounge chair you could *rest in beside it.'
 fireplace.interaction = {'rest': rest}
 fireplace.action_1 = 'rest'
 
     # PIANO
 piano = Interactables('piano')
-piano.description = 'A beautiful piano covered in dust sits on the far right end of the foyer.'
+piano.description = 'A beautiful piano covered in dust sits on the far right end of the foyer. I know how to *play it.'
 piano.action_1 = 'play'
 piano.action_2 = 'sheets'
 piano.interaction = {'play': play, 'sheets': music}
@@ -552,7 +585,7 @@ piano.interaction = {'play': play, 'sheets': music}
 
     # PORTRAIT
 portrait = Code_Interactable('portrait')
-portrait.description = '''A portrait of an old wizard. As you approach the wizard becomes animated!
+portrait.description = '''A portrait of your grandfather in his purple robes and pointed wizard hat. As you approach the painting becomes animated!
                         "I am Mordecai! What is my favorite spell?"'''.replace('   ', '')
 portrait.unlock = "Mordecai's hand extends from the painting and hands you a strange rod. You take the Rod of Planeshift."
 sparkle = portrait.unlock
@@ -562,8 +595,9 @@ portrait.locked = "Sorry, that just isn't it."
 portrait.has_item = 'Rod of Planeshift'
 
 
-    # Mural
+    # MURAL
 mural = Landscape('mural')
+mural.description = " If I *stare at it for too long I can feel my essence begin to shift."
 mural.landscape = ['This mural looks suspicially like the foyer.',
                     'This mural seems to be of a small, dusty kitchen.',
                     'A painting of a bedroom with a regal looking bed and a large tome on the nightstand.',
@@ -573,8 +607,8 @@ mural.interaction = 'stare'
 
     # ORB
 orb = Interactables('orb')
-orb.purpose = 'A strange metal orb sits on the table.'
-orb.description = "It looks like it might open. Though you aren't sure how."
+orb.purpose = ' A strange metal *orb sits on the table.'
+orb.description = "There is an inscription around the center ring: 'Five places I must go, but never the same or I will grow.' It looks like it might *open. Though you aren't sure how."
 orb.interaction = {'open': open_item}
 orb.action_1 = 'open'
 
@@ -584,6 +618,13 @@ pantry.description = "A pantry left mostly bare but a few ingredients."
 pantry.interaction = {'flour': fantastic_flour, 'oil': newt_oil}
 pantry.action_1 = 'flour'
 pantry.action_2 = 'oil'
+
+    # RECIPE BOOK
+recipe_book = Interactables("recipe")
+recipe_book.purpose = " A *recipe book sits next to the oven. It looks old and relatively unused."
+recipe_book.description = "The title reads 'Mama Mordecai's Mystical Morsels'. I can *read it."
+recipe_book.interaction = {"read": read_recipe}
+recipe_book.action_1 = "read"
 
     # CABINET
 cabinet = Interactables('cabinet')
@@ -597,23 +638,22 @@ ice_box.description = 'You open the lid. Strangely, there is no ice in it but it
 ice_box.interaction = {'eggs': hippogryph_eggs}
 ice_box.action_1 = 'eggs'
 
-
     #OVEN
 oven = Interactables('oven')
-oven.description = "It looks like it hasn't been used in years, you're not sure how it has power, but it looks like it could stead be used to bake."
+oven.description = "It looks like it hasn't been used in years, you're not sure how it has power, but it looks like it could still be used to *bake."
 oven.interaction = {'bake': bake}
 oven.action_1 = 'bake'
 
-    #FEYLEAF
-feyleaf = Interactables('feyleaf')
-feyleaf.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce. You think you might be able to pick a leaf."
-feyleaf.interaction = {'leaf': leaf}
-feyleaf.action_1 = 'leaf'
+    #faeLEAF
+faeleaf = Interactables('faeleaf')
+faeleaf.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce. You think you might be able to pick a *leaf."
+faeleaf.interaction = {'leaf': leaf}
+faeleaf.action_1 = 'leaf'
 
     #SPELLBOOK
 spellbook = Interactables('spellbook')
-spellbook.purpose = " A spellbook sits on the nightstand."
-spellbook.description = "Scrawled across the cover in elaborate filigerie: 'Mordecai's Mysterious Magiks'."
+spellbook.purpose = " A *spellbook sits on the nightstand."
+spellbook.description = "Scrawled across the cover in elaborate filigerie: 'Mordecai's Mysterious Magiks'. I can *read it."
 spellbook.interaction = {'read': read_spells}
 spellbook.action_1 = 'read'
 
@@ -626,20 +666,20 @@ wardrobe.action_2 = 'hat'
 
     # RITUAL CIRCLE
 ritual_circle = Interactables('circle')
-ritual_circle.description = 'A series of geometric shapes and runes all surrounded by a large circle are engraved into the stone floor. The center circle looks big enough to sit in.'
+ritual_circle.description = 'A series of geometric shapes and runes all surrounded by a large circle are engraved into the stone floor. The center circle looks big enough to sit and perform a *ritual in.'
 ritual_circle.interaction = {'ritual': ritual}
 ritual_circle.action_1 = 'ritual'
 
     # LETTER
 letter = Interactables('letter')
-letter.description = 'A letter from your late grandfather, the great wizard Mordecai.'
+letter.description = 'A letter from your late grandfather, the great wizard Mordecai. I can *read it.'
 letter.interaction = {'read': read_letter}
 letter.action_1 = 'read'
 
     # RITUAL_ROOM_LOCK
 ritual_room_lock = Code_Interactable('lock')
 ritual_room_lock.description = "The doors are engraved with depictions of mythical creatues. As you approach you hear your grandfather's voice say: What is the passcode?"
-ritual_room_lock.purpose = " A set of oversized doubledoors leads somewhere to the right. There is a lock on the handles. "
+ritual_room_lock.purpose = " A set of oversized doubledoors leads somewhere to the right. There is a *lock on the handles. "
 ritual_room_lock.locked = "Incorrect!"
 ritual_room_lock.unlock = "The lock falls free from the door."
 ritual_room_lock.solution = 'wmw'
@@ -647,21 +687,23 @@ ritual_room_lock.interaction = None
 
     # NOTE
 note = Interactables('note')
-note.description = "A hastily scrawled note. It's your grandfather's handwriting."
-note.purpose = " You barely notice a note hanging out of one of the draws of the desk."
+note.description = "A hastily scrawled note. It's your grandfather's handwriting. I can *read it."
+note.purpose = " You barely notice a *note hanging out of one of the draws of the desk."
 note.interaction = {'read': read_note}
 note.action_1 = 'read'
 
-    #LICENSE
+    # LICENSE
 license = Interactables("license")
-license.description = "My driver's license. I can look at it but I don't see why I need to."
+license.description = "My driver's license. I can *read it but I don't see why I need to."
 license.interaction = {"read": read_license}
 license.action_1 = "read"
 
-    #FAIRY DUST
-fairy_dust = Interactables("fairy dust")
-fairy_dust.description = "So fine it is barely visible, it sparkles like a thousand minisculue diamonds."
-fairy_dust.purpose = " Among the items your eyes finally fall upon a small bowl labeled 'Fairy Dust'."
+    # FAEDUST
+faedust = Interactables("faedust")
+faedust.description = "So fine it is barely visible, it sparkles like a thousand minisculue diamonds."
+faedust.purpose = " Among the items your eyes finally fall upon a small bowl labeled '*Faedust'."
+faedust.interaction = {}
+
 
 
 # ----------------------------------------------------------------------
@@ -681,10 +723,12 @@ open_item.item = True
 bake.item = True
 ritual_room_lock.item = True
 note.item = True
-fairy_dust.item = True
+faedust.item = True
+recipe_book.item = True
 
 
-usable_items = {'orb': orb, 'spellbook': spellbook, 'letter': letter, 'note': note, 'license': license}
+
+usable_items = {'orb': orb, 'spellbook': spellbook, 'letter': letter, 'note': note, 'license': license, 'recipe': recipe_book}
 
 
 
@@ -697,13 +741,12 @@ foyer.interactables = {'fireplace': fireplace, 'piano': piano}
 
     # SECRET ROOM
 secret_room.right = foyer
-secret_room.interactables = {'dust': fairy_dust}
+secret_room.interactables = {'faedust': faedust}
 
     # HALLWAY
 hallway.forward = garden
 hallway.back = foyer
 hallway.left = kitchen
-hallway.right = ritual_room
 hallway.up = landing
 hallway.teleport = [foyer, kitchen, master_bedroom, garden, closet, ritual_room]
 hallway.interactables = {'portrait': portrait, 'mural': mural, 'lock': ritual_room_lock}
@@ -714,7 +757,7 @@ master_bedroom.interactables = {'spellbook': spellbook}
     
     # KITCHEN
 kitchen.right = hallway
-kitchen.interactables = {'pantry': pantry, 'cabinet': cabinet, 'icebox': ice_box, 'oven': oven}
+kitchen.interactables = {'pantry': pantry, 'cabinet': cabinet, 'icebox': ice_box, 'oven': oven, 'recipe': recipe_book}
 landing.down = hallway
 
     # LANDING
@@ -729,7 +772,7 @@ study.interactables = {'orb': orb, 'note': note}
 
     #GARDEN
 garden.back = hallway
-garden.interactables = {'feyleaf': feyleaf}
+garden.interactables = {'faeleaf': faeleaf}
 
     #CLOSET
 closet.back = landing

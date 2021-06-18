@@ -58,7 +58,7 @@ class Map:
         if self.map_array is None:
             print("Map has not been initialized")
             return
-
+        map_string = ""
         for y, row in enumerate(self.map_array):
             row_string = ""
             for x, item in enumerate(row):
@@ -71,12 +71,14 @@ class Map:
                 elif item == "room":
                     row_string += self.room_icon.center(self.justification)
                 elif item == "h_conn":
-                    row_string += self.h_conn_icon * self.justification
+                    row_string += self.h_conn_icon * (self.justification)
                 elif item == "v_conn":
                     row_string += self.v_conn_icon.center(self.justification)
                 else:
-                    row_string += self.empty_icon.center(self.justification)
-            print(row_string)
+                    row_string += self.empty_icon.center(self.justification + 1)
+            map_string = map_string + row_string + '\n'
+        map_string = '\n' + map_string
+        return map_string
 
     def update_player(self, direction):
         if direction == "forward":
@@ -101,7 +103,7 @@ class Map:
         # Generate a dictionary mapping string describing a position to strings
         # describing a room
         #
-        # E.g. {"0, 4": "connector"}
+        # E.g. {"": "connector"}
         # =====================================================================
         map_dict = {}
         queue = [(Position(0,0), first_room)]

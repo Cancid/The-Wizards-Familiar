@@ -3,7 +3,6 @@ from tkinter import *
 from tkinter import ttk
 import tkinter.font as tkFont
 import os
-import sys
 
 
 
@@ -23,7 +22,7 @@ def init_gui(engine):
     TITLE = open(dir_path + '/title.txt', 'r').read()
 
     font = tkFont.Font(family='Yu Gothic', size=14)
-    title_font = tkFont.Font(family="Yu Gothic", size=20)
+    font_bold = tkFont.Font(family="Yu Gothic", size=11, weight="bold")
 
     mainframe = Frame(root, width=screen_width, height=screen_height)
     mainframe.grid(sticky='nsew')
@@ -33,30 +32,48 @@ def init_gui(engine):
 
 
     lb_title = ttk.Label(mainframe, text=TITLE, anchor=CENTER, border=5, background="mediumpurple3")
-    lb_title.grid(row=0, column=1, pady=10, sticky='nsew')
+    lb_title.grid(row=0, column=0, pady=10, sticky='nsew')
+
+
+    map_display = StringVar()
+    lb_map = Label(mainframe, textvariable=map_display, font=font_bold, background="gray8", fg="ghostwhite", bd=4, relief=RIDGE)
+    lb_map.grid(row=0, column=1, sticky='nsew', pady=(10), padx=(40,10))
+    lb_map.config(height=7, width=7)
+    
 
     ent_player_act = Entry(mainframe, width=50)
-    ent_player_act.grid(row=2, column=1, pady=10, ipady=10, sticky='ns')
+    ent_player_act.grid(row=2, columnspan=2, pady=10, ipady=10, sticky='ns')
     ent_player_act.config(background="gray25", foreground="ghostwhite", relief='solid', borderwidth=3, font=font, justify=CENTER, width=25)
+
 
     scroll_bar = Scrollbar(mainframe, orient=VERTICAL, width=15)
     scroll_bar.grid(row=1, column=2, padx= (0, 20), sticky='nsew')
     scroll_bar.config(bg="gray25", activebackground="gray40")
 
+
     t_game = Text(mainframe, pady=10, padx=10, relief='solid', borderwidth=5)
-    t_game.grid(row=1, column=1, padx=(20,0), ipadx=10, sticky='nsew')
+    t_game.grid(row=1, columnspan=2, padx=(20,0), ipadx=10, sticky='nsew')
     t_game.config(bg="gray8", font=font, fg="ghostwhite", wrap=WORD)
+
 
     t_game.configure(yscrollcommand=scroll_bar.set)
     scroll_bar.config(command=t_game.yview)
 
-    lexicon = ["piano", "fireplace", "portrait", "cabinet", "pantry", "icebox", "wardrobe", "Feyleaf",
-                "spellbook", "mural", "flour", "oil", "bake", "sweetener", "eggs", "robes", 
-                "gloves", "circle", "leaf", "Sweetener", "feyleaf", "Sweetener", "Oil", "Flour", 
-                "orb", "note", "lock", "letter", "rest", "read", "sheets", "ritual room", "dust", "Sheets",
-                "Dust", "ritual", "highlighted", "sparkle"]
+
+    lexicon = ["*piano", "*fireplace", "*portrait", "*recipe", "*cabinet", "*pantry", "*icebox", "*wardrobe", "*Feyleaf",
+                "*spellbook", "*mural", "*flour", "*oil", "*bake", "*faeleaf", "*sweetener", "*eggs", "*robes", "*license",
+                "*gloves", "*circle", "*leaf", "*Sweetener", "*feyleaf", "*Sweetener", "*Oil", "*Flour", 
+                "*orb", "*note", "*lock", "*letter", "*rest", "*read", "*sheets", "*ritual room", "*dust", "*Sheets",
+                "*Dust", "*ritual", "*highlighted", "*play", "*stare", "*inventory", "*i", "*help", "*h", "*description",
+                "*desc", "*right", "*left", "*forward", "*back", "*f", "*b", "*l", "*r", "*up", "*down", "*u", "*d",
+                "*open", "*oven"] #, "*sparkle"]
     
-    
+
+    def map_out():
+       map = engine.map.display()
+       map_display.set(map)
+
+
     def output():
         game_output = engine.player.game_text
         t_game.configure(state="normal")
@@ -68,11 +85,14 @@ def init_gui(engine):
                 if idx:
                     lastidx = '%s+%dc' % (idx, len(w))
                     t_game.tag_add("italic", idx, lastidx)
+                    idx_delete = '%s+%dc' % (idx, 1)
+                    t_game.delete(idx, idx_delete)
                     idx = lastidx
         engine.player.game_text = ''
         t_game.see(END)
         t_game.configure(state="disabled")
     
+
     def action_out(action):
         t_game.configure(state="normal")
         t_game.insert(END, "  \n\nYou: " + action)
@@ -93,7 +113,8 @@ def init_gui(engine):
         if engine.started == True:
             action_out(action)
         ent_player_act.delete(0, END)
-        engine.input_request(action.lower())
+        engine.process_input(action.lower())
+        map_out()
         output()
 
     
@@ -104,6 +125,8 @@ def init_gui(engine):
     bold_font= tkFont.Font(t_game, t_game.cget("font"))
     bold_font.config(weight="bold")
     t_game.tag_configure("bold", font=bold_font, foreground="magenta3")
+
+    t_game.tag_configure("right", justify="right")
 
     ent_player_act.focus_set()
 
