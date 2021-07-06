@@ -1,6 +1,0 @@
-get player input function
-mypy
-tests
-enums
-  anywhere there is a string as a dict key
-enter function is bad
