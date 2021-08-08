@@ -22,7 +22,7 @@ class Engine(object):
 
     def play(self):
         a_map = RoomGuide(Room.FOYER)
-        a_player = Player(a_map.next_room(a_map.room), ['license', 'letter', "tasty treat"], [])
+        a_player = Player(a_map.next_room(a_map.room), ['license', 'letter'], [])
         self.player = a_player
         self.player.last_interact("letter")
         map = mapper.Map()
@@ -366,7 +366,7 @@ class Interaction(object):
                     self.was_unlocked = True
             if self.was_unlocked == True:
                 if self.name == "ritual":
-                    player.outpur(self.unlock)
+                    player.output(self.unlock)
                     player.win = True
                 else:
                     player.output(self.unlock)
@@ -546,7 +546,7 @@ robes = Interaction('wizard robes', 'Purple, with the stars and everything. Not 
 
    # RITUAL
 ritual = Interaction('ritual', "You don't have the proper materials to perform a ritual.")
-ritual.key = ('Tincture of a Thousand Possibilites', 'faeleaf', 'tasty treat', 'Rod of Planeshift', 'wizard robes', 'faedust')
+ritual.key = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust')
 ritual.unlock = '''Callidopie joins you in the circle. As the Ritual commences, all the runes begin to alight. You feel the veil between the planes of existence begin to grow weak. Callidopie seems to nod in gratitude as her form becomes to slowly dissipate. You did it! You sent the familiar home.'''
 
    # READ LETTER 
