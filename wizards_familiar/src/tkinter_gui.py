@@ -13,9 +13,9 @@ def init_gui(engine):
     screen_height=root.winfo_screenheight()
     root.title("The Wizard's Familiar")
 
-    
     root.rowconfigure(0,weight=1)
     root.columnconfigure(0,weight=1)
+    root.resizable(height=None, width=None)
     
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -27,22 +27,22 @@ def init_gui(engine):
     mainframe = Frame(root, width=screen_width, height=screen_height)
     mainframe.grid(sticky='nsew')
     mainframe.config(background="mediumpurple3")
-    mainframe.grid_columnconfigure(1,weight=1)
+    mainframe.grid_columnconfigure(0,weight=1)
     mainframe.grid_rowconfigure(1,weight=1)
 
 
-    lb_title = ttk.Label(mainframe, text=TITLE, anchor=CENTER, border=5, background="mediumpurple3")
-    lb_title.grid(row=0, column=0, pady=10, sticky='nsew')
+    lb_title = Label(mainframe, text=TITLE, border=5, background="mediumpurple3", height=7)
+    lb_title.grid(row=0, column=0, pady=(10,0), sticky='sw')
 
 
     map_display = StringVar()
     lb_map = Label(mainframe, textvariable=map_display, font=font_bold, background="gray8", fg="ghostwhite", bd=4, relief=RIDGE)
-    lb_map.grid(row=0, column=1, sticky='ne', pady=(10), padx=(40,10))
+    lb_map.grid(row=0, column=1, sticky='se', pady=(10), padx=(40,10))
     lb_map.config(height=7, width=14)
     
 
     ent_player_act = Entry(mainframe, width=50)
-    ent_player_act.grid(row=2, columnspan=2, pady=10, ipady=10, sticky='ns')
+    ent_player_act.grid(row=2, columnspan=2, pady=10, ipady=10, sticky='n')
     ent_player_act.config(background="gray25", foreground="ghostwhite", relief='solid', borderwidth=3, font=font, justify=CENTER, width=25)
 
 
