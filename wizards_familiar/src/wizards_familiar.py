@@ -22,7 +22,7 @@ class Engine(object):
 
     def play(self):
         a_map = RoomGuide(Room.FOYER)
-        a_player = Player(a_map.next_room(a_map.room), ['license', 'letter'], [])
+        a_player = Player(a_map.next_room(a_map.room), ['license', 'letter'])
         self.player = a_player
         self.player.last_interact("letter")
         map = mapper.Map()
@@ -65,12 +65,36 @@ class Engine(object):
             print(self.player.location.name)
             self.player.location.describe(self.player)
             return True
+
         elif command in ('h', 'help'):
             self.player.output(open(dir_path + '/data/help.txt', "r").read())
             return True
+
         elif command in ("i", "inv", "inventory"):
-            self.player.output(str(self.player.inventory))
+            inv_items = []
+            inv_ing = []
+            hidden_inv = []
+            for i in self.player.inventory:
+                if i in ingredients:
+                    inv_ing.append(i)
+                elif i in hidden_items:
+                    hidden_inv.append(i)
+                else:
+                    inv_items.append(i)
+            inv_items = ", ".join(inv_items)
+            inv_ing = ", ".join(inv_ing)
+            print(self.player.inventory)
+
+            self.player.output("INVENTORY\n---------------\n"
+                + "Items: " + inv_items + "\n"
+                + "Ingredients: " + str(inv_ing))    
+                #str(self.player.inventory))
             return True
+
+        elif command in ("win_cheat"):
+            win_list = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust', 'callidopie')
+            for i in win_list:
+                self.player.inventory.append(i)
 
         elif (
             (self.player.last_interacted in self.player.location.interactables.values()
@@ -103,10 +127,9 @@ class Player(object):
     interaction_state = None
     win = False
 
-    def __init__(self, location, inventory, puzzles):
+    def __init__(self, location, inventory):
         self.location = location
         self.inventory = inventory
-        self.puzzles = puzzles
     
     last_interacted = None
     def last_interact(self, item_name):
@@ -154,7 +177,7 @@ class Player(object):
         else:
             self.location = new_location
             self.location.describe(self)
-        if "orb" in self.inventory and "puzzle_solve" not in self.puzzles:
+        if "orb" in self.inventory and "move_puzzle" not in self.inventory:
             if len(self.last_moved) == 4:
                 self.last_moved.pop(0)
             self.last_moved.append(self.location.name)
@@ -183,9 +206,7 @@ class Player(object):
     def add_item(self, new_item):
         self.inventory.append(new_item)
 
-    #slicer = 1
-    #list_size = 3
-    
+
     stage = 0
     def orb_movement(self):
         move_text = ["The orb seems to deconstruct itself like a slide puzzle to reveal a second layer.",
@@ -204,7 +225,7 @@ class Player(object):
                 return
         self.output(move_text[self.stage])
         if self.stage == 4:
-            self.puzzles.append('puzzle_solve')
+            self.inventory.append('move_puzzle')
         self.stage += 1
 
 
@@ -244,10 +265,11 @@ class PlayerLocation(object):
     def describe(self, player) -> Room:
         description = f"You are in the {self.name}. "
         description += self.description
+        print(self.interactables.values())
         for i in self.interactables.values():
-            if i.item is not None and i.item == True or i.event is not None and i.event == True:
-               description += i.purpose
-        if "callidopie" in player.puzzles:
+            if (i.item is not None and i.item == True) or (i.event is not None and i.event == True):
+                description += i.purpose
+        if "callidopie" in player.inventory:
             cal_text = self.callidopie()
             description += cal_text
         player.output(description + " What do you do?")
@@ -326,7 +348,7 @@ class Interactables(object):
             else:
                 new_item.use(player, map)
                 for act in self.interaction.keys():
-                    if act in player.puzzles:
+                    if act in player.inventory:
                         self.event = False
                 return new_item
 
@@ -338,51 +360,23 @@ class Interaction(object):
     key: Optional[str] = None
     unlock: Optional[str] = None
     was_unlocked = False
+    win = False
+    move_interaction = None
     # description = None
 
     def __init__(self, name: str, purpose: str, description: Optional[str] = None) -> None:
         self.name = name
         self.purpose = purpose
         self.description = description
+               
 
-
+    # TODO: Make not ugly
     def use(self, player, map):
         if self.active == False:
             return None
         self.was_unlocked = False
         if self.key is not None:
-            key_list = []
-            for i in player.inventory:
-                if i in self.key:
-                    key_list.append(i)
-                if Counter(key_list) == Counter(self.key):
-                    self.was_unlocked = True
-                    for i in key_list:
-                        print(i)
-                        print(key_list)
-                        player.inventory.remove(i)
-            for i in player.puzzles:
-                if i == self.key:
-                    self.was_unlocked = True
-            if self.was_unlocked == True:
-                if self.name == "ritual":
-                    player.output(self.unlock)
-                    player.win = True
-                else:
-                    player.output(self.unlock)
-                    if self.item == True:
-                        player.output(f"You take the {self.name}.")
-                        player.inventory.append(self.name)
-                        self.active = False
-                    if self.name == "callidopie":
-                        player.puzzles.append(self.name)
-                        self.active = False
-                    if self.name == "play":
-                        player.location.left = secret_room
-                        map.generate_map_from_room_guide(player.location)
-                        player.move("l", map)
-            else:
-                player.output(self.purpose)
+            self.interaction_unlock(player, map)
         else:
             player.output(self.purpose)
             if self.key == None and self.item == True:
@@ -391,6 +385,50 @@ class Interaction(object):
                 self.active = False
         player.interaction_state = None
         return
+
+
+    def interaction_unlock(self, player, map):
+        key_list = []
+        for i in player.inventory:
+            if i in self.key:
+                key_list.append(i)
+            if Counter(key_list) == Counter(self.key):
+                self.was_unlocked = True
+                for i in key_list:
+                    player.inventory.remove(i)
+                player.output(self.unlock)
+                self.interaction_condition_handler(player, map)
+
+
+    def interaction_condition_handler(self, player, map):
+        if self.win == True:
+            player.win = True
+
+
+        if self.item == True:
+            if self.item in hidden_items:
+                player.inventory.append(self.name)
+            else:
+                player.output(f"You take the {self.name}.")
+                player.inventory.append(self.name)
+            self.active = False
+
+
+        if self.move_interaction != None:
+            if self.move_interaction[1] == "l":
+                player.location.left = self.move_interaction[0]
+            elif self.move_interaction[1] == "r":
+                self.player.location.right = self.move_interaction[0]
+            elif self.move_interaction[1] == "f":
+                self.player.location.forward = self.move_interaction[0]
+            elif self.move_interaction[1] == "b":
+                self.player.location.backward = self.move_interaction[0]
+            elif self.move_interaction[1] == "u":
+                self.player.location.up = self.move_interaction[0]
+            elif self.move_interaction[1] == "d":
+                self.player.location.down = self.move_interaction[0]
+            map.generate_map_from_room_guide(player.location)
+            player.move(self.move_interaction[1], map)
 
 
 
@@ -444,7 +482,6 @@ class Code_Interactable(object):
     purpose = None
     active = True
     event = None
-    # Immutable
     interaction = None
 
     def __init__(self, name: str):
@@ -472,6 +509,7 @@ class Code_Interactable(object):
             if self.has_item != None:
                 player.inventory.append(self.has_item)
             if self.name == "lock":
+                self.event = False
                 player.location.right = ritual_room
                 map.generate_map_from_room_guide(player.location)
                 player.move("r", map)
@@ -479,8 +517,6 @@ class Code_Interactable(object):
         else:
             player.output(self.locked)
         player.interaction_state = None
-
-
 
 
 
@@ -502,13 +538,14 @@ ritual_room = PlayerLocation(Room.RITUAL_ROOM, 'ritual room', "This entire room 
 
     # OPEN_ITEM
 open_item = Interaction('Tincture of a Thousand Possibilites', "It won't open.")
-open_item.key = ('puzzle_solve')
+open_item.key = ['move_puzzle']
 open_item.unlock = "The orb slides open. A glowing gold tintcure is inside. It is labeled 'Tincture of a Thousand Possibilites."
 
     # PLAY
 play = Interaction('play', 'You play the piano.')
 play.key = ['music sheets']
 play.unlock = "You perform 'Mordedcai's Myserious Melody'. As you press the final key, you hear a rumbling from across the room! The fireplace has shifted to reveal a small passage behind."
+play.move_interaction = [secret_room, "l"]
 
     # MUSIC
 music = Interaction('music sheets', "Of all the sheets of music one labeled 'Mordecai's Mysterious Melody' catches your eye. It looks very complex to play.", ' *Sheets of music are still placed on it.')
@@ -546,8 +583,9 @@ robes = Interaction('wizard robes', 'Purple, with the stars and everything. Not 
 
    # RITUAL
 ritual = Interaction('ritual', "You don't have the proper materials to perform a ritual.")
-ritual.key = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust')
+ritual.key = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust', 'callidopie')
 ritual.unlock = '''Callidopie joins you in the circle. As the Ritual commences, all the runes begin to alight. You feel the veil between the planes of existence begin to grow weak. Callidopie seems to nod in gratitude as her form becomes to slowly dissipate. You did it! You sent the familiar home.'''
+ritual.win = True
 
    # READ LETTER 
 read_letter = Interaction("read", open(dir_path + "/data/letter.txt", "r").read())
@@ -733,14 +771,15 @@ orb.item = True
 spellbook.item = True
 open_item.item = True
 bake.item = True
-ritual_room_lock.item = True
 note.item = True
 faedust.item = True
 recipe_book.item = True
 shelf.event = True
+ritual_room_lock.event = True
 
 usable_items = {'orb': orb, 'spellbook': spellbook, 'letter': letter, 'note': note, 'license': license, 'recipe': recipe_book}
-
+ingredients = ['newt_oil', 'fantastic flour', 'hippogryph eggs', 'true_sweetner',]
+hidden_items = ['callidopie', 'move_puzzle']
 
 
 #-----------------------------------------------------------------------
