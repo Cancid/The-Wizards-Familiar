@@ -26,5 +26,5 @@ setup(
 		packages=find_packages(where="src"),
 		install_requires = requirements,
 		include_package_data=True,
-		python_requires=">=3.9",
+		python_requires=">=3.6"
 )
