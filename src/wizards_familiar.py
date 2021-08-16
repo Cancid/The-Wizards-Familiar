@@ -46,8 +46,6 @@ class Engine(object):
 
 
         if self.player.win == True:
-            congrats = "Congratulations!\nPlay Again?\nY/N"
-            self.player.output(f"{congrats}")
             if command in ("yes", "y"):
                 self.play()
             elif command in ("no", "n"):
@@ -82,7 +80,7 @@ class Engine(object):
 
             self.player.output("INVENTORY\n---------------\n"
                 + "Items: " + inv_items + "\n"
-                + "Ingredients: " + str(inv_ing))    
+                + "Ingredients: " + inv_ing)   
                 #str(self.player.inventory))
             return True
 
@@ -563,7 +561,7 @@ robes = Interaction('wizard robes', 'Purple, with the stars and everything. Not 
    # RITUAL
 ritual = Interaction('ritual', "You don't have the proper materials to perform a ritual.")
 ritual.key = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust', 'callidopie')
-ritual.unlock = '''Callidopie joins you in the circle. As the Ritual commences, all the runes begin to alight. You feel the veil between the planes of existence begin to grow weak. Callidopie seems to nod in gratitude as her form becomes to slowly dissipate. You did it! You sent the familiar home.'''
+ritual.unlock = '''Callidopie joins you in the circle. As the Ritual commences, all the runes begin to alight. You feel the veil between the planes of existence begin to grow weak. Callidopie seems to nod in gratitude as her form becomes to slowly dissipate. You did it! You sent the familiar home.\n\nCongratulations!\nPlay Again?\nY/N'''
 ritual.win = True
 
    # READ LETTER 
@@ -669,7 +667,7 @@ oven.action_1 = 'bake'
 
     # FAELEAF PLANT
 plant = Interactables('plant')
-plant.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce. You think you might be able to pick a *leaf."
+plant.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce. You think you might be able to pick a *faeleaf."
 plant.purpose = "Among shelves and shelves of plants, one *plant marked 'Faeleaf' catches your attention."
 plant.interaction = {'faeleaf': faeleaf}
 plant.action_1 = 'faeleaf'
@@ -761,7 +759,7 @@ plant.event = True
 callidopie.item = True
 
 usable_items = {'orb': orb, 'spellbook': spellbook, 'letter': letter, 'note': note, 'license': license, 'recipe': recipe_book}
-ingredients = ['newt_oil', 'fantastic flour', 'hippogryph eggs', 'true_sweetner',]
+ingredients = ['newt oil', 'fantastic flour', 'hippogryph eggs', 'true sweetener',]
 hidden_items = ['callidopie', 'move_puzzle']
 
 

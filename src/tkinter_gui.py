@@ -67,7 +67,7 @@ def init_gui(engine):
                 "*orb", "*note", "*lock", "*letter", "*rest", "*read", "*sheets", "*ritual room", "*dust", "*Sheets",
                 "*Dust", "*ritual", "*highlighted", "*play", "*stare", "*inventory", "*i", "*help", "*h", "*description",
                 "*desc", "*right", "*left", "*forward", "*back", "*f", "*b", "*l", "*r", "*up", "*down", "*u", "*d",
-                "*open", "*oven", "*Faedust", "*shelf", "*Callidopie"] #, "*sparkle"]
+                "*open", "*oven", "*Faedust", "*shelf", "*Callidopie", "*plant"] #, "*sparkle"]
     
 
     def map_out():
