@@ -4,6 +4,7 @@ from threading import Timer
 from enum import Enum
 from typing import List, Set, Dict, Tuple, Optional, Callable, Iterator, Union, Literal
 from collections import Counter
+import logging
 import os
 
 
@@ -26,7 +27,6 @@ class Engine(object):
         self.player = a_player
         self.player.last_interact("letter")
         map = mapper.Map()
-        print(map)
         map.generate_map_from_room_guide(self.player.location)
         self.map = map
         press_play = "Press ENTER to Play \n\n"
@@ -35,7 +35,8 @@ class Engine(object):
   
 
     def process_input(self, command):
-
+        
+        logging.debug("Last Interacrted: %s", self.player.last_interacted)
 
         if self.started == False:
             self.player.output("Welcome to the Wizard's Familiar!\n")
@@ -53,16 +54,11 @@ class Engine(object):
                 exit(0)
             return
         
-        if self.player.location == foyer and self.player.location.left is None and play.was_unlocked == True:
-            self.player.location.left = secret_room
-            self.map.generate_map_from_room_guide(self.player.location)
-
         if command in DIRECTION_INDEX:
             self.player.interaction_state = None
             self.player.move(command, self.map)
 
         elif command in ('desc', 'description'):
-            print(self.player.location.name)
             self.player.location.describe(self.player)
             return True
 
@@ -83,7 +79,6 @@ class Engine(object):
                     inv_items.append(i)
             inv_items = ", ".join(inv_items)
             inv_ing = ", ".join(inv_ing)
-            print(self.player.inventory)
 
             self.player.output("INVENTORY\n---------------\n"
                 + "Items: " + inv_items + "\n"
@@ -92,33 +87,36 @@ class Engine(object):
             return True
 
         elif command in ("win_cheat"):
-            win_list = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust', 'callidopie')
+            win_list = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift',
+                'wizard robes', 'faedust', 'callidopie')
             for i in win_list:
                 self.player.inventory.append(i)
 
-        elif (
-            (self.player.last_interacted in self.player.location.interactables.values()
-            or self.player.last_interacted in self.player.inventory)
-            and command in self.player.last_interacted.interaction.keys()
-        ):
+        elif ((self.player.last_interacted in self.player.location.interactables.values()
+            or str(self.player.last_interacted) in self.player.inventory) 
+            and command in self.player.last_interacted.interaction.keys()):
+
+            logging.debug("Interacting with last interacted: %s", self.player.last_interacted)
             self.player.last_interacted.interact(self.player, command, self.map)
 
         elif command in self.player.location.interactables.keys() or command in self.player.inventory:
-            self.player.interact(command)
-            
+            logging.debug("Interacting with Interactable")
 
-        elif self.player.interaction_state is not None:
-            if self.player.interaction_state in self.player.inventory:
-                object = usable_items.get(self.player.interaction_state)
-            else:
-                object = self.player.location.interactables.get(self.player.interaction_state)
-            object.interact(self.player, command, self.map)
-        
-        else:
-            print("Process Input - INVALID")
-            self.player.output("Please enter a valid response.")
-            return True
+            if command in self.player.location.interactables:
+                logging.debug("Interact - Location Interactable")
+                interactable = self.player.location.interactables.get(command)
+
+            elif command in self.player.inventory:
+                logging.debug("Interact - Inventory")
+                interactable = usable_items.get(command)
+
+            logging.debug("INTERACTABLE: %s", interactable)
+            interactable.describe(self.player)
             
+        else:
+            logging.debug("INVALID INPUT")
+            self.player.output("Please enter a valid response.")
+            return True  
 
 
 class Player(object):
@@ -183,24 +181,6 @@ class Player(object):
             self.last_moved.append(self.location.name)
             self.orb_movement()
             return True
-
-    def interact(self, command): 
-        if command in ('e', 'exit'):
-            print("Player - Interact- Exit")
-            self.interaction_state = None
-            self.location.describe(self)
-            return
-        elif command not in self.location.interactables and command not in self.inventory:
-            print("Player - Interact - Invalid Response")
-            self.output('Please enter a valid response.')
-            return 
-        elif command in self.location.interactables:
-            print("Player - Interact - Location Interactable")
-            interactable = self.location.interactables.get(command)
-        elif command in self.inventory:
-            interactable = usable_items.get(command)
-        self.interaction_state = interactable.name
-        interactable.describe(self)
         
 
     def add_item(self, new_item):
@@ -216,7 +196,6 @@ class Player(object):
                         "The final layer of the orb shrinks to reveal a seam with a latch in the center."]
             
         visit_counter = Counter(self.last_moved)
-        print(visit_counter)
         for count in visit_counter.values():
             if count >= 2:
                 self.last_moved = []
@@ -265,7 +244,6 @@ class PlayerLocation(object):
     def describe(self, player) -> Room:
         description = f"You are in the {self.name}. "
         description += self.description
-        print(self.interactables.values())
         for i in self.interactables.values():
             if (i.item is not None and i.item == True) or (i.event is not None and i.event == True):
                 description += i.purpose
@@ -290,7 +268,6 @@ class PlayerLocation(object):
                 event_select = ""
             else:
                 event_select = events[cal_event]
-                print(event_select)
             events.pop()
             return event_select
 
@@ -314,29 +291,28 @@ class Interactables(object):
         return self.name
 
     def describe(self, player):
-        player.last_interact(self.name)
-        description = f"{self.description}"
-        if self.interaction is not None:
-            for act in self.interaction.values():
-                if act.description is not None and act.active == True:
-                    description += act.description
+        if self.event == False:
+            description = "I don't need to do that anymore."
+        else:
+            player.last_interact(self.name)
+            description = f"{self.description}"
+            if self.interaction is not None:
+                for act in self.interaction.values():
+                    if act.description is not None and act.active == True:
+                        description += act.description
         if self.item == True:
             player.inventory.append(f'{self.name}')
-            player.last_interact(self.name)
             self.item = False
             description += f' You pick up the {self.name}.'
-            player.interaction_state = None
         player.output(description)
 
        
   
     def interact(self, player, command, map) -> None:
         if command in ('e', 'exit'):
-            player.interaction_state = None
             player.location.describe(player)
             return
         elif command in DIRECTION_INDEX:
-            player.interaction_state = None
             player.move(command, map)
         elif command not in self.interaction or not ('e', 'exit'):
             player.output("Please enter a valid response.")
@@ -344,11 +320,11 @@ class Interactables(object):
         elif command == self.action_1 or self.action_2:
             new_item = self.interaction.get(command)
             if new_item.active == False:
-                player.output("I can't do that anymore.")
+                player.output("I already did that.")
             else:
                 new_item.use(player, map)
                 for act in self.interaction.keys():
-                    if act in player.inventory:
+                    if str(act) in player.inventory:
                         self.event = False
                 return new_item
 
@@ -373,13 +349,14 @@ class Interaction(object):
     # TODO: Make not ugly
     def use(self, player, map):
         if self.active == False:
+            player.output("I already did that.")
             return None
         self.was_unlocked = False
-        if self.key is not None:
+        if self.key != None:
             self.interaction_unlock(player, map)
         else:
             player.output(self.purpose)
-            if self.key == None and self.item == True:
+            if self.item == True:
                 player.output(f'You take the {self.name}.')
                 player.inventory.append(self.name)
                 self.active = False
@@ -392,27 +369,28 @@ class Interaction(object):
         for i in player.inventory:
             if i in self.key:
                 key_list.append(i)
-            if Counter(key_list) == Counter(self.key):
-                self.was_unlocked = True
-                for i in key_list:
-                    player.inventory.remove(i)
-                player.output(self.unlock)
-                self.interaction_condition_handler(player, map)
+        if Counter(key_list) == Counter(self.key):
+            self.was_unlocked = True
+            for i in key_list:
+                player.inventory.remove(i)
+            player.output(self.unlock)
+            self.interaction_condition_handler(player, map)
+        else:
+            player.output(self.purpose)
 
 
     def interaction_condition_handler(self, player, map):
+
         if self.win == True:
             player.win = True
 
-
         if self.item == True:
-            if self.item in hidden_items:
+            if self.name in hidden_items:
                 player.inventory.append(self.name)
             else:
                 player.output(f"You take the {self.name}.")
                 player.inventory.append(self.name)
             self.active = False
-
 
         if self.move_interaction != None:
             if self.move_interaction[1] == "l":
@@ -429,6 +407,7 @@ class Interaction(object):
                 self.player.location.down = self.move_interaction[0]
             map.generate_map_from_room_guide(player.location)
             player.move(self.move_interaction[1], map)
+        player.interaction_state = None
 
 
 
@@ -449,7 +428,6 @@ class Landscape(object):
         self.spin = randint(0, 4)
         land = self.landscape[self.spin]
         player.output(land + self.description)
-        print(land)
 
     def interact(self, player, choice, map):
         if choice in DIRECTION_INDEX:
@@ -489,10 +467,11 @@ class Code_Interactable(object):
     
     def describe(self, player):
         if self.active == False:
-            player.output("I can't do that anymore.")
+            player.output("I already did that.")
             player.interaction_state = None
         else:
             player.output(self.description)
+            player.last_interact(self.name)
 
     def interact(self, player, code, map) -> None:
         if code in DIRECTION_INDEX:
@@ -527,7 +506,7 @@ kitchen = PlayerLocation(Room.KITCHEN, 'kitchen', "Small compared to the rest of
 master_bedroom = PlayerLocation(Room.MASTER_BEDROOM, 'Master Bedroom', "A large four post bed sits in the center of the room. A nightstand made of gnarled oak is one side of it. Globules of light flutter through the air, providing dim light to the room.")
 landing = PlayerLocation(Room.LANDING, 'landing', "Seemingly hundreds of small frames are hung all over the walls of the wooden landing. A cobalt blue door is on your left. A door made of redwood is on your right. A small closet seems to be in front of you.")
 study = PlayerLocation(Room.STUDY, 'study', "This room seems to be hald library and hald labratory. Books are scattered across a desk and there is a labratory table covered in beakers and a potions.")
-garden = PlayerLocation(Room.GARDEN, 'garden', "Only the smallest indication of a stone wall peaks out of the ivy that covers every surface of this small garden. You can see the starry night sky overhead. Among shelves and shelves of plants, one marked '*faeleaf' catches your attention.")
+garden = PlayerLocation(Room.GARDEN, 'garden', "Only the smallest indication of a stone wall peaks out of the ivy that covers every surface of this small garden. You can see the starry night sky overhead. ")
 closet = PlayerLocation(Room.CLOSET, 'closet', 'A small walk-in closet full of your standard junk. A large dark wood *wardrobe stands on the far end.')
 ritual_room = PlayerLocation(Room.RITUAL_ROOM, 'ritual room', "This entire room appears to be made of stone. Strange runes mark the walls. A glowing blue *circle seems to be engraved into the floor taking up most of the room.")
 
@@ -567,10 +546,10 @@ bake = Interaction('tasty treat', "You don't have enough ingrediants to *bake wi
 bake.key = ('fantastic flour', 'hippogryph eggs', 'newt oil', 'true sweetener')
 bake.unlock = 'You bake a tasty treat.'
 
-    # LEAF
-leaf = Interaction('faeleaf', 'The leaf shimmers out of existence when you go to grab it.')
-leaf.key = ['Gloves of Lightest Touch']
-leaf.unlock= 'With the Gloves of Lightest Touch your grip is soft as a cloud. You take the leaf.'
+    # FAELEAF
+faeleaf = Interaction('faeleaf', 'The faeleaf shimmers out of existence when you go to grab it.')
+faeleaf.key = ['Gloves of Lightest Touch']
+faeleaf.unlock= 'With the Gloves of Lightest Touch your grip is soft as a cloud.'
 
     # READ_SPELLS
 read_spells = Interaction('read', open(dir_path + '/data/spell.txt', 'r').read())
@@ -688,11 +667,12 @@ oven.description = "It looks like it hasn't been used in years, you're not sure 
 oven.interaction = {'bake': bake}
 oven.action_1 = 'bake'
 
-    # FAELEAF
-faeleaf = Interactables('faeleaf')
-faeleaf.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce. You think you might be able to pick a *leaf."
-faeleaf.interaction = {'leaf': leaf}
-faeleaf.action_1 = 'leaf'
+    # FAELEAF PLANT
+plant = Interactables('plant')
+plant.description = "A deep green plant. Its leaves seem to shimmer in and out of existernce. You think you might be able to pick a *leaf."
+plant.purpose = "Among shelves and shelves of plants, one *plant marked 'Faeleaf' catches your attention."
+plant.interaction = {'faeleaf': faeleaf}
+plant.action_1 = 'faeleaf'
 
     # SPELLBOOK
 spellbook = Interactables('spellbook')
@@ -726,8 +706,9 @@ ritual_room_lock.description = "The doors are engraved with depictions of mythic
 ritual_room_lock.purpose = " A set of oversized doubledoors leads somewhere to the right. There is a *lock on the handles."
 ritual_room_lock.locked = "Incorrect!"
 ritual_room_lock.unlock = "The lock falls free from the door."
+wmw = ritual_room_lock.unlock
 ritual_room_lock.solution = 'wmw'
-ritual_room_lock.interaction = None
+ritual_room_lock.interaction = {"wmw": wmw}
 
     # NOTE
 note = Interactables('note')
@@ -766,7 +747,7 @@ hippogryph_eggs.item = True
 true_sweetener.item = True
 gloves.item = True
 robes.item = True
-leaf.item = True
+faeleaf.item = True
 orb.item = True
 spellbook.item = True
 open_item.item = True
@@ -776,6 +757,8 @@ faedust.item = True
 recipe_book.item = True
 shelf.event = True
 ritual_room_lock.event = True
+plant.event = True
+callidopie.item = True
 
 usable_items = {'orb': orb, 'spellbook': spellbook, 'letter': letter, 'note': note, 'license': license, 'recipe': recipe_book}
 ingredients = ['newt_oil', 'fantastic flour', 'hippogryph eggs', 'true_sweetner',]
@@ -823,7 +806,7 @@ study.interactables = {'orb': orb, 'note': note}
 
     # GARDEN
 garden.back = hallway
-garden.interactables = {'faeleaf': faeleaf}
+garden.interactables = {'plant': plant}
 
     # CLOSET
 closet.back = landing
