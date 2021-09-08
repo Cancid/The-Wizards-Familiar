@@ -47,6 +47,7 @@ class Engine(object):
 
         if self.player.win == True:
             if command in ("yes", "y"):
+                self.started = False
                 self.play()
             elif command in ("no", "n"):
                 exit(0)
@@ -425,13 +426,14 @@ class Landscape(object):
     def describe(self, player):
         self.spin = randint(0, 4)
         land = self.landscape[self.spin]
+        player.last_interact(self.name)
         player.output(land + self.description)
 
     def interact(self, player, choice, map):
         if choice in DIRECTION_INDEX:
             player.interaction_state = None
             player.move(choice, map)
-        if choice == 'stare':
+        if choice == self.action_1:
             player.location = player.location.teleport[self.spin]
             map.generate_map_from_room_guide(player.location)
             player.interaction_state = None
@@ -624,7 +626,8 @@ mural.landscape = ['This mural looks suspicially like the foyer.',
                     'A painting of a bedroom with a regal looking bed and a large tome on the nightstand.',
                     'A beautiful, serene garden is painted on the wall.',
                     'This is a painting of a... junk closet? Strange.']
-mural.interaction = 'stare'
+mural.interaction = {'stare': mural.action_1}
+mural.action_1 = 'stare'
 
     # ORB
 orb = Interactables('orb')
