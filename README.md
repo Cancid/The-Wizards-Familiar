@@ -13,3 +13,9 @@ or
 Download the exe to run on Linux. 
 
 Please find bugs and tell me about them! There are lots. 
+
+To Do:
+Fix typos and better text
+Windows and Mac exe
+Filler items for house
+Orb puzzle too hard/silly (hints?)
