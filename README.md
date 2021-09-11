@@ -5,7 +5,7 @@
 
 To Play: 
 
-Download the source code and run __main__.py
+Download the source code, install the requirments, and run __main__.py
 Works best on linux, okay on windows, and poorly on mac.
 
 or
