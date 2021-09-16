@@ -37,10 +37,9 @@ class Engine(object):
 
     def process_input(self, command):
 
-        # Intro text
-        
         logging.debug("Last Interacrted: %s", self.player.last_interacted)
-
+        
+        # Intro text
         if self.started == False:
             self.player.output("Welcome to the Wizard's Familiar!\n")
             self.player.output(open(dir_path + '/data/help.txt', "r").read() + "\nTry reading the letter in your *inventory!")
@@ -110,7 +109,7 @@ class Engine(object):
             logging.debug("Interacting with last interacted: %s", self.player.last_interacted)
             self.player.last_interacted.interact(self.player, command, self.map)
 
-        # If player inputs item, interact with that item
+
         elif command in self.player.location.interactables.keys() or command in self.player.inventory:
             logging.debug("Interacting with Interactable")
 
@@ -193,11 +192,6 @@ class Player(object):
             self.last_moved.append(self.location.name)
             self.orb_movement()
             return True
-        
-
-    def add_item(self, new_item):
-        self.inventory.append(new_item)
-
 
     stage = 0
     def orb_movement(self):
@@ -836,7 +830,6 @@ ritual_room.interactables = {'circle': ritual_circle}
 
 
 #------------------------------------------------------------
-
 
 
 class RoomGuide(object):
