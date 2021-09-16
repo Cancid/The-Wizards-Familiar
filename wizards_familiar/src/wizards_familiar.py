@@ -7,7 +7,7 @@ from collections import Counter
 import os
 
 
-DIRECTION_INDEX = ['f','b','l','r','u','d','forward','backward','left','right','up','down']
+direction_index = ['f','b','l','r','u','d','forward','backward','left','right','up','down']
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -20,13 +20,13 @@ class Engine(object):
 
     started = False
 
+    # Init player and map. Provide opening scene. 
     def play(self):
         a_map = RoomGuide(Room.FOYER)
         a_player = Player(a_map.next_room(a_map.room), ['license', 'letter'])
         self.player = a_player
         self.player.last_interact("letter")
         map = mapper.Map()
-        print(map)
         map.generate_map_from_room_guide(self.player.location)
         self.map = map
         press_play = "Press ENTER to Play \n\n"
@@ -36,14 +36,14 @@ class Engine(object):
 
     def process_input(self, command):
 
-
+        # Intro text
         if self.started == False:
             self.player.output("Welcome to the Wizard's Familiar!\n")
             self.player.output(open(dir_path + '/data/help.txt', "r").read() + "\nTry reading the letter in your *inventory!")
             self.started = True
             return
 
-
+        # Ending text
         if self.player.win == True:
             congrats = "Congratulations!\nPlay Again?\nY/N"
             self.player.output(f"{congrats}")
@@ -53,11 +53,13 @@ class Engine(object):
                 exit(0)
             return
         
+        # Do I still need this? 
         if self.player.location == foyer and self.player.location.left is None and play.was_unlocked == True:
             self.player.location.left = secret_room
             self.map.generate_map_from_room_guide(self.player.location)
 
-        if command in DIRECTION_INDEX:
+        # If command is move, move player.
+        if command in direction_index:
             self.player.interaction_state = None
             self.player.move(command, self.map)
 
@@ -74,6 +76,7 @@ class Engine(object):
             inv_items = []
             inv_ing = []
             hidden_inv = []
+            # Sort player inventory
             for i in self.player.inventory:
                 if i in ingredients:
                     inv_ing.append(i)
@@ -83,19 +86,21 @@ class Engine(object):
                     inv_items.append(i)
             inv_items = ", ".join(inv_items)
             inv_ing = ", ".join(inv_ing)
-            print(self.player.inventory)
 
+            #Only output Items and Ingredients. NOT hidden items(puzzle keys)
             self.player.output("INVENTORY\n---------------\n"
                 + "Items: " + inv_items + "\n"
                 + "Ingredients: " + str(inv_ing))    
-                #str(self.player.inventory))
             return True
 
+        # Cheater.
         elif command in ("win_cheat"):
             win_list = ('Tincture of a Thousand Possibilites', 'faeleaf', 'Rod of Planeshift', 'wizard robes', 'faedust', 'callidopie')
             for i in win_list:
                 self.player.inventory.append(i)
 
+        # TODO: Make clearer? 
+        # If the last item interacted with is in room or inv, and player inputs use command, do it.
         elif (
             (self.player.last_interacted in self.player.location.interactables.values()
             or self.player.last_interacted in self.player.inventory)
@@ -103,10 +108,11 @@ class Engine(object):
         ):
             self.player.last_interacted.interact(self.player, command, self.map)
 
+        # If player inputs item, interact with that item
         elif command in self.player.location.interactables.keys() or command in self.player.inventory:
             self.player.interact(command)
-            
 
+        # If player 
         elif self.player.interaction_state is not None:
             if self.player.interaction_state in self.player.inventory:
                 object = usable_items.get(self.player.interaction_state)
@@ -115,7 +121,6 @@ class Engine(object):
             object.interact(self.player, command, self.map)
         
         else:
-            print("Process Input - INVALID")
             self.player.output("Please enter a valid response.")
             return True
             
@@ -265,7 +270,6 @@ class PlayerLocation(object):
     def describe(self, player) -> Room:
         description = f"You are in the {self.name}. "
         description += self.description
-        print(self.interactables.values())
         for i in self.interactables.values():
             if (i.item is not None and i.item == True) or (i.event is not None and i.event == True):
                 description += i.purpose
@@ -335,7 +339,7 @@ class Interactables(object):
             player.interaction_state = None
             player.location.describe(player)
             return
-        elif command in DIRECTION_INDEX:
+        elif command in direction_index:
             player.interaction_state = None
             player.move(command, map)
         elif command not in self.interaction or not ('e', 'exit'):
@@ -449,10 +453,9 @@ class Landscape(object):
         self.spin = randint(0, 4)
         land = self.landscape[self.spin]
         player.output(land + self.description)
-        print(land)
 
     def interact(self, player, choice, map):
-        if choice in DIRECTION_INDEX:
+        if choice in direction_index:
             player.interaction_state = None
             player.move(choice, map)
         if choice == 'stare':
@@ -495,7 +498,7 @@ class Code_Interactable(object):
             player.output(self.description)
 
     def interact(self, player, code, map) -> None:
-        if code in DIRECTION_INDEX:
+        if code in direction_index:
             player.interaction_state = None
             player.move(code, map)
             return
@@ -508,6 +511,7 @@ class Code_Interactable(object):
             self.active = False
             if self.has_item != None:
                 player.inventory.append(self.has_item)
+            # TODO: Needs to not be hard coded.
             if self.name == "lock":
                 self.event = False
                 player.location.right = ritual_room

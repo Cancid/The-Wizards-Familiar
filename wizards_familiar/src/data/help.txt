@@ -17,3 +17,4 @@ To read the description of a room again type:
 To view this list of commands again type:
 *help or *h
 
+There is a map in the top right corner of the screen!

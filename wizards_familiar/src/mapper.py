@@ -1,7 +1,6 @@
 import math
 
 # TODO Features:
-# Player position on map
 # Discover areas as the player progresses
 # Doors that appear on map
 # CoLoRs
